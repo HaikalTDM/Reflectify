@@ -920,15 +920,15 @@ export default function SettingsScreen() {
             router.push('/donation');
           }}
           activeOpacity={0.7}
-          className={`mx-6 my-4 p-5 rounded-2xl ${isDark ? 'bg-primary-accent/10 border border-primary-accent/30' : 'bg-primary-accent/5 border border-primary-accent/20'}`}
+          className={`mx-6 my-4 p-6 rounded-2xl ${isDark ? 'bg-primary-accent/10 border-2 border-primary-accent/30' : 'bg-primary-accent/5 border-2 border-primary-accent/20'}`}
         >
-          <View className="flex-row items-center justify-center">
-            <Ionicons name="heart" size={24} color="#d4af37" />
-            <Text className={`ml-3 text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
-              💚 Support Reflectify
+          <View className="flex-row items-center justify-center mb-2">
+            <Text className="text-2xl mr-2">💚</Text>
+            <Text className={`text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
+              Support Reflectify
             </Text>
           </View>
-          <Text className={`text-center mt-2 text-sm ${isDark ? 'text-primary-accent/70' : 'text-gray-600'}`}>
+          <Text className={`text-center text-sm leading-5 ${isDark ? 'text-primary-accent/80' : 'text-gray-700'}`}>
             Help keep hadiths free • Earn Sadaqah Jariyah
           </Text>
         </TouchableOpacity>

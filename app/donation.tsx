@@ -84,38 +84,60 @@ export default function DonationScreen() {
     }
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    setLoading(true);
 
-    try {
-      // Get the final amount
-      const finalAmount = selectedAmount === 'custom' ? parseFloat(customAmount) : selectedAmount;
-      
-      // Toyyibpay payment URL
-      const paymentUrl = `https://toyyibpay.com/ReflectifyDonation?amount=${finalAmount}`;
-      
-      // Open payment page
-      const canOpen = await Linking.canOpenURL(paymentUrl);
-      if (canOpen) {
-        await Linking.openURL(paymentUrl);
-        
-        // Show thank you message
-        showAlert({
-          title: 'Jazakallahu Khairan! 💚',
-          message: `Thank you for your RM ${finalAmount} donation. Your support helps keep hadiths free for everyone.\n\n"The best charity is that given when one has little." - Prophet Muhammad ﷺ`,
-          buttons: [{ text: 'Alhamdulillah', onPress: () => router.back() }],
-        });
-      } else {
-        throw new Error('Cannot open payment link');
-      }
-    } catch (error) {
-      showAlert({
-        title: 'Payment Error',
-        message: 'Unable to open payment page. Please try again later.',
-        buttons: [{ text: 'OK' }],
-      });
-    } finally {
-      setLoading(false);
-    }
+    // Get the final amount
+    const finalAmount = selectedAmount === 'custom' ? parseFloat(customAmount) : selectedAmount;
+    
+    // Show reminder BEFORE opening payment page
+    showAlert({
+      title: 'Opening Payment Page... 💚',
+      message: `You selected RM ${finalAmount}.\n\nPlease select the same amount on the Toyyibpay page.\n\nReady to proceed?`,
+      buttons: [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Got it!',
+          onPress: async () => {
+            // Now open the payment page
+            setLoading(true);
+            try {
+              const paymentUrl = 'https://toyyibpay.com/ReflectifyDonation';
+              
+              const canOpen = await Linking.canOpenURL(paymentUrl);
+              if (canOpen) {
+                await Linking.openURL(paymentUrl);
+                
+                // Show thank you message after opening browser
+                setTimeout(() => {
+                  showAlert({
+                    title: 'Jazakallahu Khairan! 💚',
+                    message: `Thank you for your RM ${finalAmount} donation.\n\nYour support helps keep hadiths free for everyone.\n\n"The best charity is that given when one has little." - Prophet Muhammad ﷺ`,
+                    buttons: [
+                      { 
+                        text: 'Alhamdulillah', 
+                        onPress: () => router.back() 
+                      }
+                    ],
+                  });
+                }, 1000); // Small delay to let browser open first
+              } else {
+                throw new Error('Cannot open payment link');
+              }
+            } catch (error) {
+              showAlert({
+                title: 'Payment Error',
+                message: 'Unable to open payment page. Please try again later.',
+                buttons: [{ text: 'OK' }],
+              });
+            } finally {
+              setLoading(false);
+            }
+          }
+        }
+      ],
+    });
   };
 
   const handleBack = async () => {
@@ -389,6 +411,18 @@ export default function DonationScreen() {
             </Text>
           </View>
 
+          {/* Info Note */}
+          {selectedAmount && (
+            <View className={`p-4 rounded-xl mb-4 ${isDark ? 'bg-primary-accent/10' : 'bg-primary-accent/10'}`}>
+              <View className="flex-row items-start">
+                <Ionicons name="information-circle" size={20} color="#d4af37" style={{ marginTop: 2 }} />
+                <Text className={`flex-1 ml-2 text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  You'll select RM {selectedAmount === 'custom' ? customAmount : selectedAmount} on the payment page
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Donate Button */}
           <TouchableOpacity
             onPress={handleDonation}
@@ -413,7 +447,7 @@ export default function DonationScreen() {
                   ? 'text-primary-dark'
                   : 'text-gray-500'
               }`}>
-                {loading ? 'Processing...' : 'Donate Now'}
+                {loading ? 'Opening Payment...' : 'Proceed to Payment'}
               </Text>
             </View>
           </TouchableOpacity>

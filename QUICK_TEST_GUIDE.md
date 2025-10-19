@@ -57,12 +57,15 @@ npm start
 5. Tap **"Donate Now"**
 
 **What Should Happen:**
-- ✅ Opens Toyyibpay page in browser
-- ✅ Shows RM 5.00
+- ✅ Opens Toyyibpay page in browser: `https://toyyibpay.com/ReflectifyDonation`
+- ✅ Shows message: "You selected RM 5. Please select the same amount on the Toyyibpay page."
 - ✅ FPX payment options visible
+- ℹ️ **Note:** Amount is selected on Toyyibpay's page (not passed in URL)
 
 **🎯 DO THIS:**
-- Test with **RM 1** (custom amount)
+- Select an amount in the app (RM 5, 10, 20, 50, 100, or custom)
+- Tap "Proceed to Payment"
+- On Toyyibpay page, select the SAME amount
 - Complete payment to verify it works
 - Check if Toyyibpay dashboard shows the transaction
 
@@ -72,8 +75,9 @@ npm start
 
 1. In donation screen, select **"Custom Amount"**
 2. Enter **10** (RM 10)
-3. Tap **"Donate Now"**
-4. Verify URL shows `?amount=10`
+3. Tap **"Proceed to Payment"**
+4. Opens same Toyyibpay page
+5. Select RM 10 on the payment page
 
 ---
 
@@ -97,17 +101,24 @@ npm start
 
 ---
 
-### **Problem 2: "Payment page doesn't open"**
+### **Problem 2: "404 Page Not Found" or "Payment page doesn't open"**
 
 **Possible causes:**
-- URL blocked by phone
-- Wrong URL format
-- Toyyibpay link not public
+- Toyyibpay link not active
+- Wrong URL
+- Link visibility settings
 
 **Fix:**
-1. Test URL directly in browser: https://toyyibpay.com/ReflectifyDonation
-2. Make sure Toyyibpay link is set to "Active"
-3. Check phone settings → Allow opening external links
+1. **Verify URL in browser:** Open https://toyyibpay.com/ReflectifyDonation in your browser
+2. **Check Toyyibpay dashboard:**
+   - Login to https://toyyibpay.com
+   - Go to "My Links"
+   - Make sure "ReflectifyDonation" is set to **"Active"** (not draft/inactive)
+   - Check link visibility is set to **"Public"**
+3. **If 404 persists:**
+   - Copy the EXACT link from your Toyyibpay dashboard
+   - Update in `app/donation.tsx` line 95
+4. **Check phone settings:** Allow opening external links
 
 ---
 
