@@ -1,25 +1,56 @@
-import { useEffect } from 'react';
+// CRITICAL: These imports MUST come first to polyfill React Native's URL implementation
+import 'react-native-url-polyfill/auto';
+import '../global.css';
+
+import { useEffect, useState } from 'react';
 import { Stack, useRouter } from 'expo-router';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { registerForPushNotificationsAsync } from '../utils/notification';
-import { ThemeProvider } from '../contexts/ThemeContext';
+import { ThemeProvider, useTheme } from '../contexts/ThemeContext';
 import { NotificationProvider } from '../contexts/NotificationContext';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { useUsageTracker } from '../utils/usageTracker';
 import { preloadHadiths } from '../utils/hadithApi';
+import OnboardingModal from '../components/OnboardingModal';
+import { parentalPin } from '../utils/parentalPin';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
-import '../global.css';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 function RootNavigator() {
   const router = useRouter();
   const { user, loading } = useAuth();
+  const { isDark } = useTheme();
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [checkingOnboarding, setCheckingOnboarding] = useState(true);
 
   // Track usage and trigger reflection when limit is reached
   useUsageTracker(() => {
     // Navigate to reflection screen when usage limit is reached
     router.push('/reflection');
   });
+
+  // Check if user has completed onboarding
+  useEffect(() => {
+    const checkOnboarding = async () => {
+      try {
+        const completed = await AsyncStorage.getItem('onboarding_completed');
+        if (!completed && user) {
+          // Show onboarding for new users
+          setShowOnboarding(true);
+        }
+      } catch (error) {
+        console.error('Error checking onboarding:', error);
+      } finally {
+        setCheckingOnboarding(false);
+      }
+    };
+
+    if (!loading) {
+      checkOnboarding();
+    }
+  }, [loading, user]);
 
   // Redirect to auth screen if not logged in
   useEffect(() => {
@@ -29,33 +60,60 @@ function RootNavigator() {
     }
   }, [user, loading, router]);
 
+  const handleOnboardingComplete = async (pin?: string) => {
+    try {
+      // Mark onboarding as completed
+      await AsyncStorage.setItem('onboarding_completed', 'true');
+      
+      // Save PIN if provided
+      if (pin && pin.length === 4) {
+        await parentalPin.setPin(pin);
+        console.log('✅ Parental PIN set during onboarding');
+      }
+      
+      setShowOnboarding(false);
+    } catch (error) {
+      console.error('Error completing onboarding:', error);
+      setShowOnboarding(false);
+    }
+  };
+
   // Show nothing while checking auth status
   if (loading) {
     return null;
   }
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        animation: 'fade',
-      }}
-    >
-      <Stack.Screen name="index" />
-      <Stack.Screen 
-        name="reflection" 
-        options={{
-          presentation: 'fullScreenModal',
+    <>
+      <Stack
+        screenOptions={{
+          headerShown: false,
           animation: 'fade',
         }}
+      >
+        <Stack.Screen name="index" />
+        <Stack.Screen 
+          name="reflection" 
+          options={{
+            presentation: 'fullScreenModal',
+            animation: 'fade',
+          }}
+        />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="auth" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="bookmarks" />
+        <Stack.Screen name="admin" />
+        <Stack.Screen name="donation" />
+      </Stack>
+
+      {/* Onboarding Modal - Shows on first launch */}
+      <OnboardingModal
+        visible={showOnboarding && !checkingOnboarding}
+        onComplete={handleOnboardingComplete}
+        isDark={isDark}
       />
-      <Stack.Screen name="settings" />
-      <Stack.Screen name="auth" />
-      <Stack.Screen name="profile" />
-      <Stack.Screen name="bookmarks" />
-      <Stack.Screen name="admin" />
-      <Stack.Screen name="donation" />
-    </Stack>
+    </>
   );
 }
 
@@ -176,17 +234,19 @@ function AppInitializer() {
 
 export default function RootLayout() {
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <AuthProvider>
-            <NotificationProvider>
-              <AppInitializer />
-            </NotificationProvider>
-          </AuthProvider>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <AuthProvider>
+              <NotificationProvider>
+                <AppInitializer />
+              </NotificationProvider>
+            </AuthProvider>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

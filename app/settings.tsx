@@ -22,6 +22,10 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { enableSync, disableSync, syncLocalToCloud, syncCloudToLocal } from '../utils/userStatsSupabase';
 import { soundManager } from '../utils/soundManager';
+import PinModal from '../components/PinModal';
+import SetPinModal from '../components/SetPinModal';
+import OnboardingModal from '../components/OnboardingModal';
+import { parentalPin } from '../utils/parentalPin';
 
 type Frequency = 'manual' | 'daily' | 'weekly' | 'random';
 type Language = 'en' | 'ar' | 'ms' | 'en+ar' | 'en+ms' | 'ar+ms' | 'all';
@@ -40,6 +44,12 @@ export default function SettingsScreen() {
   const [syncing, setSyncing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundVolume, setSoundVolume] = useState<'low' | 'medium' | 'high'>('high');
+  
+  // PIN Protection
+  const [showPinModal, setShowPinModal] = useState(false);
+  const [showSetPinModal, setShowSetPinModal] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -167,6 +177,21 @@ export default function SettingsScreen() {
   };
 
   const handleFrequencyChange = async (newFrequency: Frequency) => {
+    const currentFrequency = frequency;
+    const isDecreasingProductivity = newFrequency === 'manual' && currentFrequency !== 'manual';
+
+    if (isDecreasingProductivity) {
+      // Require PIN to change to manual (disables auto-reminders)
+      requirePin(async () => {
+        await actuallyChangeFrequency(newFrequency);
+      });
+    } else {
+      // Increasing reminders doesn't need PIN
+      await actuallyChangeFrequency(newFrequency);
+    }
+  };
+
+  const actuallyChangeFrequency = async (newFrequency: Frequency) => {
     setFrequency(newFrequency);
     await AsyncStorage.setItem('frequency', newFrequency);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -175,12 +200,19 @@ export default function SettingsScreen() {
     if (newFrequency !== 'manual' && notificationsEnabled) {
       await scheduleReflectionNotification(newFrequency);
       showToast({
-        message: `Reflection reminders scheduled ${newFrequency}`,
+        message: `✅ Reflection reminders scheduled ${newFrequency}`,
         type: 'success',
         duration: 3000,
       });
     } else {
       await cancelAllNotifications();
+      if (newFrequency === 'manual') {
+        showToast({
+          message: '⚠️ Auto-reminders disabled',
+          type: 'info',
+          duration: 2000,
+        });
+      }
     }
   };
 
@@ -218,7 +250,73 @@ export default function SettingsScreen() {
     }
   };
 
+  /**
+   * Require PIN for protected actions
+   * Used to prevent children from disabling parental controls
+   */
+  const requirePin = async (action: () => void, needsProtection: boolean = true) => {
+    if (!needsProtection) {
+      // No protection needed, execute directly
+      action();
+      return;
+    }
+
+    // Check if PIN is set
+    const pinIsSet = await parentalPin.isPinSet();
+    
+    if (!pinIsSet) {
+      // No PIN set yet - prompt to set one first
+      showAlert({
+        title: 'Set Parental PIN',
+        message: 'Please set a PIN first to protect this setting.',
+        buttons: [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Set PIN',
+            onPress: () => {
+              // Show set PIN modal, then execute action
+              setPendingAction(() => action);
+              setShowSetPinModal(true);
+            },
+          },
+        ],
+      });
+      return;
+    }
+
+    // Store the action to execute after PIN is verified
+    setPendingAction(() => action);
+    setShowPinModal(true);
+  };
+
+  const handlePinSuccess = () => {
+    // Execute the pending action
+    if (pendingAction) {
+      pendingAction();
+      setPendingAction(null);
+    }
+  };
+
   const handleUsageLimitChange = async (newLimit: UsageLimit) => {
+    // Check if this change needs PIN protection
+    const currentLimit = usageLimit;
+    const isDecreasingProtection = 
+      (currentLimit !== 'disabled' && newLimit === 'disabled') || // Turning off
+      (currentLimit === '60' && newLimit === '120') || // Increasing to 2 hours
+      (currentLimit === '120' && newLimit === 'disabled'); // Turning off
+
+    if (isDecreasingProtection) {
+      // Require PIN to decrease protection
+      requirePin(async () => {
+        await actuallyChangeUsageLimit(newLimit);
+      });
+    } else {
+      // Increasing protection doesn't need PIN
+      await actuallyChangeUsageLimit(newLimit);
+    }
+  };
+
+  const actuallyChangeUsageLimit = async (newLimit: UsageLimit) => {
     setUsageLimit(newLimit);
     await usageTracker.setUsageLimit(newLimit);
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -227,13 +325,13 @@ export default function SettingsScreen() {
       const remaining = await usageTracker.getRemainingTime();
       setRemainingTime(remaining);
       showToast({
-        message: `Usage lock set to ${newLimit === '60' ? '1 hour' : '2 hours'}`,
+        message: `✅ Usage lock set to ${newLimit === '60' ? '1 hour' : '2 hours'}`,
         type: 'success',
         duration: 3000,
       });
     } else {
       showToast({
-        message: 'Usage lock disabled',
+        message: '⚠️ Usage lock disabled',
         type: 'info',
         duration: 2000,
       });
@@ -241,21 +339,23 @@ export default function SettingsScreen() {
   };
 
   const handleResetData = () => {
-    showAlert({
-      title: 'Reset Data',
-      message: 'Are you sure you want to reset all your reflection data? This cannot be undone.',
-      icon: 'warning',
-      iconColor: '#f59e0b',
-      buttons: [
-        { 
-          text: 'Cancel', 
-          style: 'cancel',
-        },
-        {
-          text: 'Reset',
-          style: 'destructive',
-          onPress: async () => {
-            try {
+    // Require PIN to reset data (prevents accidental/malicious deletion)
+    requirePin(() => {
+      showAlert({
+        title: 'Reset Data',
+        message: 'Are you sure you want to reset all your reflection data? This cannot be undone.',
+        icon: 'warning',
+        iconColor: '#f59e0b',
+        buttons: [
+          { 
+            text: 'Cancel', 
+            style: 'cancel',
+          },
+          {
+            text: 'Reset',
+            style: 'destructive',
+            onPress: async () => {
+              try {
               // Clear all local storage data
               await AsyncStorage.multiRemove([
                 'reflectionCount',
@@ -319,6 +419,7 @@ export default function SettingsScreen() {
           },
         },
       ],
+    });
     });
   };
 
@@ -472,6 +573,66 @@ export default function SettingsScreen() {
         className="flex-1 px-6" 
         showsVerticalScrollIndicator={false}
       >
+        {/* Support / Donation Button - Prominent at Top */}
+        <TouchableOpacity
+          onPress={async () => {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push('/donation');
+          }}
+          activeOpacity={0.7}
+          className={`my-4 p-6 rounded-2xl ${isDark ? 'bg-primary-accent/10 border-2 border-primary-accent/30' : 'bg-primary-accent/5 border-2 border-primary-accent/20'}`}
+        >
+          <View className="flex-row items-center justify-center mb-2">
+            <Text className="text-2xl mr-2">💚</Text>
+            <Text className={`text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
+              Support Reflectify
+            </Text>
+          </View>
+          <Text className={`text-center text-sm leading-5 ${isDark ? 'text-primary-accent/80' : 'text-gray-700'}`}>
+            Help keep hadiths free • Earn Sadaqah Jariyah
+          </Text>
+        </TouchableOpacity>
+
+        {/* Parental Control PIN */}
+        <SettingSection title="PARENTAL CONTROL">
+          <View className="p-4">
+            <Text className={`text-sm mb-3 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Set PIN to protect sensitive settings (usage lock, notifications)
+            </Text>
+            <TouchableOpacity
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                const pinIsSet = await parentalPin.isPinSet();
+                
+                if (!pinIsSet) {
+                  // No PIN set - create one
+                  setShowSetPinModal(true);
+                } else {
+                  // PIN exists - verify first, then change
+                  setPendingAction(() => () => {
+                    setShowSetPinModal(true);
+                  });
+                  setShowPinModal(true);
+                }
+              }}
+              className={`py-4 px-5 rounded-xl ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <Ionicons name="lock-closed" size={24} color="#d4af37" />
+                  <Text className={`ml-3 font-semibold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+                    Change Parental PIN
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={isDark ? '#9ca3af' : '#6b7280'} />
+              </View>
+            </TouchableOpacity>
+            <Text className={`text-xs mt-3 ${isDark ? 'text-yellow-500' : 'text-yellow-700'}`}>
+              🔒 Protected settings: Usage Lock, Reflection Frequency (Manual), Data Reset
+            </Text>
+          </View>
+        </SettingSection>
+
         {/* Appearance */}
         <SettingSection title="APPEARANCE">
           <SettingItem
@@ -718,22 +879,40 @@ export default function SettingsScreen() {
           )}
         </SettingSection>
 
-        {/* Data Management */}
-        <SettingSection title="DATA">
-          <SettingItem
-            icon="refresh-outline"
-            title="Reset Progress"
-            subtitle="Clear all reflection data"
-            onPress={handleResetData}
-            rightComponent={
-              <Ionicons
-                name="chevron-forward"
-                size={20}
-                color={isDark ? '#9ca3af' : '#6b7280'}
-              />
-            }
-          />
-        </SettingSection>
+        {/* Data Management - Admin Only */}
+        {isAdmin && (
+          <SettingSection title="DATA">
+            <SettingItem
+              icon="book-outline"
+              title="Show Tutorial"
+              subtitle="View onboarding guide again"
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                setShowOnboarding(true);
+              }}
+              rightComponent={
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={isDark ? '#9ca3af' : '#6b7280'}
+                />
+              }
+            />
+            <SettingItem
+              icon="refresh-outline"
+              title="Reset Progress"
+              subtitle="Clear all reflection data"
+              onPress={handleResetData}
+              rightComponent={
+                <Ionicons
+                  name="chevron-forward"
+                  size={20}
+                  color={isDark ? '#9ca3af' : '#6b7280'}
+                />
+              }
+            />
+          </SettingSection>
+        )}
 
         {/* About */}
         <SettingSection title="ABOUT">
@@ -913,26 +1092,6 @@ export default function SettingsScreen() {
           </View>
         )}
 
-        {/* Support / Donation Button */}
-        <TouchableOpacity
-          onPress={async () => {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push('/donation');
-          }}
-          activeOpacity={0.7}
-          className={`mx-6 my-4 p-6 rounded-2xl ${isDark ? 'bg-primary-accent/10 border-2 border-primary-accent/30' : 'bg-primary-accent/5 border-2 border-primary-accent/20'}`}
-        >
-          <View className="flex-row items-center justify-center mb-2">
-            <Text className="text-2xl mr-2">💚</Text>
-            <Text className={`text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
-              Support Reflectify
-            </Text>
-          </View>
-          <Text className={`text-center text-sm leading-5 ${isDark ? 'text-primary-accent/80' : 'text-gray-700'}`}>
-            Help keep hadiths free • Earn Sadaqah Jariyah
-          </Text>
-        </TouchableOpacity>
-
         {/* Admin Panel Button - Only for Admin Users */}
         {isAdmin && (
           <TouchableOpacity
@@ -957,6 +1116,84 @@ export default function SettingsScreen() {
 
         <View className="h-8" />
       </Animated.ScrollView>
+
+      {/* PIN Modal for Protected Settings */}
+      <PinModal
+        visible={showPinModal}
+        onClose={() => {
+          setShowPinModal(false);
+          setPendingAction(null);
+        }}
+        onSuccess={handlePinSuccess}
+        onFail={() => {
+          showToast({ message: 'Incorrect PIN', type: 'error' });
+        }}
+        title="Parental Control"
+        subtitle="Enter PIN to change this setting"
+        isDark={isDark}
+      />
+
+      {/* Set PIN Modal for First Time Setup or Changing PIN */}
+      <SetPinModal
+        visible={showSetPinModal}
+        onClose={() => {
+          setShowSetPinModal(false);
+          setPendingAction(null);
+        }}
+        onSuccess={async (newPin: string) => {
+          // Save the new PIN
+          const success = await parentalPin.setPin(newPin);
+          setShowSetPinModal(false);
+          
+          if (success) {
+            showToast({ 
+              message: '✅ PIN set successfully!', 
+              type: 'success',
+              duration: 3000,
+            });
+            
+            // Execute pending action if any
+            if (pendingAction) {
+              pendingAction();
+              setPendingAction(null);
+            }
+          } else {
+            showToast({ 
+              message: 'Failed to set PIN', 
+              type: 'error',
+              duration: 2000,
+            });
+          }
+        }}
+        title="Set Parental PIN"
+        subtitle="Create a 4-digit PIN to protect settings"
+        isDark={isDark}
+      />
+
+      {/* Onboarding Modal - For Tutorial/Guide */}
+      <OnboardingModal
+        visible={showOnboarding}
+        onComplete={async (pin?: string) => {
+          // Save PIN if provided from onboarding
+          if (pin && pin.length === 4) {
+            const success = await parentalPin.setPin(pin);
+            if (success) {
+              showToast({ 
+                message: '✅ Parental PIN set successfully!', 
+                type: 'success',
+                duration: 3000,
+              });
+            }
+          }
+          setShowOnboarding(false);
+          showToast({
+            message: '👋 Tutorial completed!',
+            type: 'success',
+            duration: 2000,
+          });
+        }}
+        isDark={isDark}
+      />
     </View>
   );
 }

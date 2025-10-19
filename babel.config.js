@@ -22,6 +22,8 @@ module.exports = function (api) {
           allowUndefined: true,
         },
       ],
+      // MUST be last plugin - handles native animations
+      'react-native-reanimated/plugin',
     ],
   };
 };

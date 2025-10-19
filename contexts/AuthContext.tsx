@@ -330,6 +330,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     try {
+      // Clear stats cache before signing out
+      const { clearStatsCache } = await import('../utils/userStatsSupabase');
+      clearStatsCache();
+      
       await supabase.auth.signOut();
       setUser(null);
       setSession(null);

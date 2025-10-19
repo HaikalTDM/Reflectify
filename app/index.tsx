@@ -1,5 +1,5 @@
-import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Animated, Easing } from 'react-native';
+import React, { useEffect, useState, useCallback, useRef, memo } from 'react';
+import { View, Text, TouchableOpacity, Dimensions, Animated, Easing, Image } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +13,64 @@ import { usageTracker } from '../utils/usageTracker';
 import { getUserStats, UserStats } from '../utils/userStatsSupabase';
 
 const { width } = Dimensions.get('window');
+
+// Memoized Stats Card Component to prevent unnecessary re-renders
+const StatsCard = memo(({ 
+  icon, 
+  value, 
+  label, 
+  color, 
+  isDark, 
+  onPress, 
+  animatedScale 
+}: { 
+  icon: string; 
+  value: number; 
+  label: string; 
+  color: string; 
+  isDark: boolean; 
+  onPress: () => void;
+  animatedScale: Animated.Value;
+}) => {
+  const colorClasses = {
+    orange: isDark ? 'bg-orange-900/20 border-orange-500/30' : 'bg-orange-50 border-orange-200',
+    yellow: isDark ? 'bg-yellow-900/20 border-yellow-500/30' : 'bg-yellow-50 border-yellow-200',
+  };
+
+  const textColorClasses = {
+    orange: isDark ? 'text-orange-400' : 'text-orange-600',
+    yellow: isDark ? 'text-yellow-400' : 'text-yellow-600',
+  };
+
+  const subtextColorClasses = {
+    orange: isDark ? 'text-orange-300/70' : 'text-orange-700/70',
+    yellow: isDark ? 'text-yellow-300/70' : 'text-yellow-700/70',
+  };
+
+  return (
+    <TouchableOpacity 
+      activeOpacity={0.9}
+      onPress={onPress}
+      className={`flex-1 p-4 rounded-2xl border ${colorClasses[color as 'orange' | 'yellow']}`}
+    >
+      <View className="items-center">
+        <Animated.View style={{ transform: [{ scale: animatedScale }] }}>
+          <Ionicons 
+            name={icon as any} 
+            size={32} 
+            color={color === 'orange' ? '#f97316' : '#d4af37'} 
+          />
+        </Animated.View>
+        <Text className={`text-3xl font-bold mt-2 ${textColorClasses[color as 'orange' | 'yellow']}`}>
+          {value}
+        </Text>
+        <Text className={`text-xs mt-1 ${subtextColorClasses[color as 'orange' | 'yellow']}`}>
+          {label}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+});
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -139,6 +197,54 @@ export default function HomeScreen() {
     ).start();
   }, []);
 
+  const loadSettings = useCallback(async () => {
+    try {
+      const [frequency, userStats] = await Promise.all([
+        AsyncStorage.getItem('frequency'),
+        getUserStats(),
+      ]);
+
+      const freq = frequency || 'manual';
+      if (freq !== 'manual') {
+        const nextTime = calculateNextReflection(freq as 'daily' | 'weekly' | 'random');
+        setNextReflection(nextTime);
+      }
+
+      setStats(userStats);
+
+      // Load usage tracking info
+      const isUsageEnabled = await usageTracker.isEnabled();
+      if (isUsageEnabled) {
+        const remaining = await usageTracker.getRemainingTime();
+        setUsageRemaining(usageTracker.formatRemainingTime(remaining));
+      } else {
+        setUsageRemaining(null);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  }, []);
+
+  const checkReflectionCompletion = useCallback(async () => {
+    try {
+      const completed = await AsyncStorage.getItem('justCompleted');
+      if (completed === 'true') {
+        setShowConfetti(true);
+        await AsyncStorage.removeItem('justCompleted');
+        setTimeout(() => setShowConfetti(false), 3000);
+        
+        // Show celebration toast
+        showToast({
+          message: '🎉 Reflection completed! Great job!',
+          type: 'success',
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      console.error('Error checking completion:', error);
+    }
+  }, [showToast]);
+
   // Reload data when screen comes back into focus with re-entrance animation
   useFocusEffect(
     useCallback(() => {
@@ -173,34 +279,6 @@ export default function HomeScreen() {
     }, [loadSettings, checkReflectionCompletion])
   );
 
-  const loadSettings = useCallback(async () => {
-    try {
-      const [frequency, userStats] = await Promise.all([
-        AsyncStorage.getItem('frequency'),
-        getUserStats(),
-      ]);
-
-      const freq = frequency || 'manual';
-      if (freq !== 'manual') {
-        const nextTime = calculateNextReflection(freq as 'daily' | 'weekly' | 'random');
-        setNextReflection(nextTime);
-      }
-
-      setStats(userStats);
-
-      // Load usage tracking info
-      const isUsageEnabled = await usageTracker.isEnabled();
-      if (isUsageEnabled) {
-        const remaining = await usageTracker.getRemainingTime();
-        setUsageRemaining(usageTracker.formatRemainingTime(remaining));
-      } else {
-        setUsageRemaining(null);
-      }
-    } catch (error) {
-      console.error('Error loading settings:', error);
-    }
-  }, []);
-
   const calculateNextReflection = (frequency: 'daily' | 'weekly' | 'random'): string => {
     const now = new Date();
     let next = new Date();
@@ -227,26 +305,6 @@ export default function HomeScreen() {
       minute: '2-digit',
     });
   };
-
-  const checkReflectionCompletion = useCallback(async () => {
-    try {
-      const completed = await AsyncStorage.getItem('justCompleted');
-      if (completed === 'true') {
-        setShowConfetti(true);
-        await AsyncStorage.removeItem('justCompleted');
-        setTimeout(() => setShowConfetti(false), 3000);
-        
-        // Show celebration toast
-        showToast({
-          message: '🎉 Reflection completed! Great job!',
-          type: 'success',
-          duration: 4000,
-        });
-      }
-    } catch (error) {
-      console.error('Error checking completion:', error);
-    }
-  }, [showToast]);
 
   const handleStartReflection = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -304,7 +362,7 @@ export default function HomeScreen() {
     showAlert({
       title: `🔥 ${stats.currentStreak} Day Streak!`,
       message: `Current Streak: ${stats.currentStreak} days\nLongest Streak: ${stats.longestStreak} days\n\n${encouragement}`,
-      buttons: [{ text: 'Keep Going!', style: 'primary' }],
+      buttons: [{ text: 'Keep Going!' }],
     });
   };
 
@@ -327,7 +385,7 @@ export default function HomeScreen() {
       title: `⭐ ${stats.totalScore} Points!`,
       message: `Total Score: ${stats.totalScore} points\nReflections: ${stats.totalReflections}\nAverage: ${avgScore} pts/reflection\n\nYour Rank: ${rank}`,
       buttons: [
-        { text: 'Amazing!', style: 'primary' },
+        { text: 'Amazing!' },
       ],
     });
   };
@@ -349,7 +407,7 @@ export default function HomeScreen() {
       title: `📿 ${stats.totalReflections} Reflections`,
       message: message,
       buttons: [
-        { text: 'Alhamdulillah', style: 'primary' },
+        { text: 'Alhamdulillah' },
       ],
     });
   };
@@ -373,13 +431,21 @@ export default function HomeScreen() {
         style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
         className="pt-16 px-6 pb-4 flex-row justify-between items-center"
       >
-        <View>
-          <Text className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
-            Reflectify
-          </Text>
-          <Text className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Pause. Reflect. Grow.
-          </Text>
+        <View className="flex-row items-center flex-1">
+          {/* Logo */}
+          <Image
+            source={require('../assets/logo.png')}
+            style={{ width: 50, height: 50, marginRight: 12 }}
+            resizeMode="contain"
+          />
+          <View className="flex-1">
+            <Text className={`text-3xl font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+              Reflectify
+            </Text>
+            <Text className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+              Pause. Reflect. Grow.
+            </Text>
+          </View>
         </View>
         <TouchableOpacity
           onPress={handleSettings}
@@ -401,43 +467,24 @@ export default function HomeScreen() {
         >
           {/* Main Stats Row */}
           <View className="flex-row gap-3 mb-3">
-            {/* Streak Card */}
-            <TouchableOpacity 
-              activeOpacity={0.9}
+            <StatsCard
+              icon="flame"
+              value={stats.currentStreak}
+              label="Day Streak"
+              color="orange"
+              isDark={isDark}
               onPress={handleStreakPress}
-              className={`flex-1 p-4 rounded-2xl ${isDark ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}
-            >
-              <View className="items-center">
-                <Animated.View style={{ transform: [{ scale: streakPulse }] }}>
-                  <Ionicons name="flame" size={32} color="#f97316" />
-                </Animated.View>
-                <Text className={`text-3xl font-bold mt-2 ${isDark ? 'text-orange-400' : 'text-orange-600'}`}>
-                  {stats.currentStreak}
-                </Text>
-                <Text className={`text-xs mt-1 ${isDark ? 'text-orange-300/70' : 'text-orange-700/70'}`}>
-                  Day Streak
-                </Text>
-              </View>
-            </TouchableOpacity>
-
-            {/* Score Card */}
-            <TouchableOpacity 
-              activeOpacity={0.9}
+              animatedScale={streakPulse}
+            />
+            <StatsCard
+              icon="star"
+              value={stats.totalScore}
+              label="Total Points"
+              color="yellow"
+              isDark={isDark}
               onPress={handleScorePress}
-              className={`flex-1 p-4 rounded-2xl ${isDark ? 'bg-yellow-900/20 border border-yellow-500/30' : 'bg-yellow-50 border border-yellow-200'}`}
-            >
-              <View className="items-center">
-                <Animated.View style={{ transform: [{ scale: scorePulse }] }}>
-                  <Ionicons name="star" size={32} color="#d4af37" />
-                </Animated.View>
-                <Text className={`text-3xl font-bold mt-2 ${isDark ? 'text-yellow-400' : 'text-yellow-600'}`}>
-                  {stats.totalScore}
-                </Text>
-                <Text className={`text-xs mt-1 ${isDark ? 'text-yellow-300/70' : 'text-yellow-700/70'}`}>
-                  Total Points
-                </Text>
-              </View>
-            </TouchableOpacity>
+              animatedScale={scorePulse}
+            />
           </View>
 
           {/* Reflections Card */}

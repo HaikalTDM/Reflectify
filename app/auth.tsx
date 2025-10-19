@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Easing } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, KeyboardAvoidingView, Platform, ActivityIndicator, Animated, Easing, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -340,15 +340,20 @@ export default function AuthScreen() {
         
         <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center', padding: 24 }}>
           {/* Logo/Icon */}
-          <Animated.View 
+          <Animated.View
             style={{
               opacity: fadeAnim,
               transform: [{ translateY: slideAnim }, { scale: logoScale }],
             }}
             className="items-center mb-16"
           >
-            <View className="w-32 h-32 rounded-full bg-primary-accent/20 items-center justify-center mb-6">
-              <Ionicons name="book" size={64} color="#d4af37" />
+            {/* Logo */}
+            <View className="w-32 h-32 rounded-full bg-white items-center justify-center mb-6 shadow-lg">
+              <Image
+                source={require('../assets/logo.png')}
+                style={{ width: 100, height: 100 }}
+                resizeMode="contain"
+              />
             </View>
             <Text className={`text-4xl font-bold mb-3 ${isDark ? 'text-white' : 'text-primary-dark'}`}>
               Reflectify

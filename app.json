@@ -4,52 +4,79 @@
     "slug": "reflectify",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.svg",
+    "icon": "./assets/logo.png",
     "userInterfaceStyle": "automatic",
     "scheme": "reflectify",
     "splash": {
-      "image": "./assets/splash.svg",
+      "image": "./assets/logo.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
+    },
+    "updates": {
+      "fallbackToCacheTimeout": 0
     },
     "assetBundlePatterns": [
       "**/*"
     ],
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.reflectify.app"
+      "bundleIdentifier": "com.reflectify.app",
+      "infoPlist": {
+        "NSUserTrackingUsageDescription": "This app uses tracking for performance monitoring and crash reporting to improve your experience.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
+      }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.svg",
+        "foregroundImage": "./assets/logo.png",
         "backgroundColor": "#ffffff"
       },
       "package": "com.reflectify.app",
       "permissions": [
-        "NOTIFICATIONS"
+        "android.permission.RECEIVE_BOOT_COMPLETED",
+        "android.permission.SCHEDULE_EXACT_ALARM",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.svg"
+      "favicon": "./assets/logo.png",
+      "bundler": "metro"
     },
     "plugins": [
       "expo-router",
       [
         "expo-notifications",
         {
-          "icon": "./assets/notification-icon.svg",
-          "color": "#ffffff"
+          "icon": "./assets/logo.png",
+          "color": "#d4af37"
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": false
         }
       ]
     ],
+    "experiments": {
+      "typedRoutes": true
+    },
     "extra": {
       "router": {
         "origin": false
       },
       "eas": {
-        "projectId": "your-project-id"
+        "projectId": "2ca9cf0f-95a5-4d09-9a62-56297528aa17"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "optimization": {
+      "minify": true,
+      "treeShaking": true
     }
   }
 }
-

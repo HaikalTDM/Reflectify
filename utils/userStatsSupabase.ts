@@ -21,6 +21,16 @@ const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
 
 // In-memory cache for instant access
 let cachedStats: UserStats | null = null;
+let cachedUserId: string | null = null; // Track which user's data is cached
+
+/**
+ * Clear in-memory cache (call on logout or user switch)
+ */
+export function clearStatsCache(): void {
+  cachedStats = null;
+  cachedUserId = null;
+  console.log('🧹 Stats cache cleared');
+}
 
 /**
  * Check if user is signed in and sync is enabled
@@ -100,6 +110,19 @@ async function backgroundSyncFromCloud(): Promise<void> {
  * Get user statistics (LOCAL FIRST for instant load, then background sync)
  */
 export async function getUserStats(): Promise<UserStats> {
+  // Get current user ID
+  const { data: { session } } = await supabase.auth.getSession();
+  const currentUserId = session?.user?.id || null;
+  
+  // If user changed, clear cache
+  if (cachedUserId && currentUserId !== cachedUserId) {
+    console.log('🔄 User changed, clearing cache');
+    clearStatsCache();
+  }
+  
+  // Update cached user ID
+  cachedUserId = currentUserId;
+  
   // 1. Return from memory cache if available (INSTANT)
   if (cachedStats) {
     // Trigger background sync if needed (non-blocking)
@@ -126,6 +149,43 @@ export async function getUserStats(): Promise<UserStats> {
  */
 async function getLocalStats(): Promise<UserStats> {
   try {
+    // Check if cloud sync is enabled
+    const syncEnabled = await isSyncEnabled();
+    
+    if (syncEnabled) {
+      // If cloud sync is enabled, fetch from cloud first
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const [statsResult, bookmarksResult] = await Promise.all([
+          supabase
+            .from('user_stats')
+            .select('*')
+            .eq('user_id', session.user.id)
+            .single(),
+          supabase
+            .from('bookmarks')
+            .select('hadith_reference')
+            .eq('user_id', session.user.id),
+        ]);
+        
+        if (!statsResult.error && statsResult.data) {
+          const cloudStats: UserStats = {
+            totalReflections: statsResult.data.total_reflections,
+            totalScore: statsResult.data.total_score,
+            currentStreak: statsResult.data.current_streak,
+            longestStreak: statsResult.data.longest_streak,
+            lastReflectionDate: statsResult.data.last_reflection_date,
+            bookmarkedHadiths: bookmarksResult.data?.map(b => b.hadith_reference) || [],
+          };
+          
+          // Save to local storage for future
+          await saveLocalStats(cloudStats);
+          return cloudStats;
+        }
+      }
+    }
+    
+    // Fall back to local storage if cloud sync disabled or failed
     const stored = await AsyncStorage.getItem(STATS_KEY);
     if (stored) {
       return JSON.parse(stored);
