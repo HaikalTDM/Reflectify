@@ -139,11 +139,37 @@ export default function HomeScreen() {
     ).start();
   }, []);
 
-  // Reload data when screen comes back into focus
+  // Reload data when screen comes back into focus with re-entrance animation
   useFocusEffect(
     useCallback(() => {
       loadSettings();
       checkReflectionCompletion();
+      
+      // Re-animate when coming back from other screens
+      fadeAnim.setValue(0);
+      slideAnim.setValue(30);
+      statsScaleAnim.setValue(0.9);
+      
+      Animated.parallel([
+        Animated.timing(fadeAnim, {
+          toValue: 1,
+          duration: 400,
+          easing: Easing.bezier(0.25, 0.1, 0.25, 1),
+          useNativeDriver: true,
+        }),
+        Animated.timing(slideAnim, {
+          toValue: 0,
+          duration: 350,
+          easing: Easing.bezier(0.34, 1.56, 0.64, 1),
+          useNativeDriver: true,
+        }),
+        Animated.spring(statsScaleAnim, {
+          toValue: 1,
+          tension: 50,
+          friction: 7,
+          useNativeDriver: true,
+        }),
+      ]).start();
     }, [loadSettings, checkReflectionCompletion])
   );
 
@@ -244,7 +270,22 @@ export default function HomeScreen() {
 
   const handleSettings = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push('/settings');
+    
+    // Smooth exit animation before navigation
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: -20,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      router.push('/settings');
+    });
   };
 
   const handleStreakPress = async () => {

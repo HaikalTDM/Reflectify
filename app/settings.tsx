@@ -34,6 +34,7 @@ export default function SettingsScreen() {
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const slideAnim = useRef(new Animated.Value(30)).current;
+  const contentFadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     loadSettings();
@@ -53,7 +54,41 @@ export default function SettingsScreen() {
         useNativeDriver: true,
       }),
     ]).start();
+
+    // Staggered content fade-in
+    Animated.timing(contentFadeAnim, {
+      toValue: 1,
+      duration: 600,
+      delay: 150,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
   }, []);
+
+  const handleBack = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Smooth exit animation before going back
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 0,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 30,
+        duration: 200,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentFadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+    ]).start(() => {
+      router.back();
+    });
+  };
 
   const loadSettings = async () => {
     try {
@@ -332,7 +367,7 @@ export default function SettingsScreen() {
         className="pt-16 px-6 pb-4 flex-row items-center"
       >
         <TouchableOpacity
-          onPress={() => router.back()}
+          onPress={handleBack}
           className={`p-2 rounded-full mr-4 ${isDark ? 'bg-gray-800' : 'bg-gray-100'}`}
         >
           <Ionicons name="arrow-back" size={24} color={isDark ? '#fff' : '#1a1a1a'} />
@@ -345,7 +380,7 @@ export default function SettingsScreen() {
       </Animated.View>
 
       <Animated.ScrollView 
-        style={{ opacity: fadeAnim }}
+        style={{ opacity: contentFadeAnim }}
         className="flex-1 px-6" 
         showsVerticalScrollIndicator={false}
       >
