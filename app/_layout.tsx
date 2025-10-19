@@ -54,6 +54,7 @@ function RootNavigator() {
       <Stack.Screen name="profile" />
       <Stack.Screen name="bookmarks" />
       <Stack.Screen name="admin" />
+      <Stack.Screen name="donation" />
     </Stack>
   );
 }

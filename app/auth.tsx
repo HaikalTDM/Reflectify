@@ -10,7 +10,7 @@ import { useNotification } from '../contexts/NotificationContext';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function AuthScreen() {
-  const [mode, setMode] = useState<'welcome' | 'signin' | 'signup'>('welcome');
+  const [mode, setMode] = useState<'welcome' | 'signin' | 'signup' | 'reset'>('welcome');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -285,6 +285,54 @@ export default function AuthScreen() {
     }
   };
 
+  const handlePasswordReset = async () => {
+    if (!email) {
+      showToast('Please enter your email address');
+      return;
+    }
+
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    setLoading(true);
+
+    try {
+      const { supabase } = await import('../lib/supabase');
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: 'reflectify://reset-password', // Deep link for mobile
+      });
+
+      setLoading(false);
+
+      if (error) {
+        showAlert({
+          title: 'Reset Failed',
+          message: error.message || 'Failed to send reset email',
+          buttons: [{ text: 'OK' }],
+        });
+      } else {
+        showAlert({
+          title: 'Check Your Email',
+          message: `We've sent a password reset link to ${email}. Check your inbox and follow the instructions.`,
+          buttons: [
+            { 
+              text: 'OK', 
+              onPress: () => {
+                setMode('signin');
+                setPassword('');
+              }
+            }
+          ],
+        });
+      }
+    } catch (error) {
+      setLoading(false);
+      showAlert({
+        title: 'Error',
+        message: 'Failed to send reset email. Please try again.',
+        buttons: [{ text: 'OK' }],
+      });
+    }
+  };
+
   if (mode === 'welcome') {
     return (
       <SafeAreaView className={`flex-1 ${isDark ? 'bg-primary-dark' : 'bg-[#faf8f5]'}`} style={{ backgroundColor: isDark ? '#1a1a1a' : '#faf8f5' }}>
@@ -392,12 +440,14 @@ export default function AuthScreen() {
             className="mb-12"
           >
             <Text className={`text-3xl font-bold mb-2 ${isDark ? 'text-white' : 'text-primary-dark'}`}>
-              {mode === 'signin' ? 'Welcome Back' : 'Create Account'}
+              {mode === 'signin' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
             </Text>
             <Text className={`text-lg ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
               {mode === 'signin' 
                 ? 'Sign in to sync your progress across devices' 
-                : 'Sign up to save your progress to the cloud'}
+                : mode === 'signup'
+                ? 'Sign up to save your progress to the cloud'
+                : 'Enter your email to receive a password reset link'}
             </Text>
           </Animated.View>
 
@@ -433,37 +483,38 @@ export default function AuthScreen() {
               </Animated.View>
             </View>
 
-            <View>
-              <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
-                Password
-              </Text>
-              <Animated.View
-                style={{
-                  opacity: fadeAnim,
-                  transform: [{ translateY: slideAnim }],
-                }}
-              >
-                <TextInput
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    if (mode === 'signup') {
-                      checkPasswordRequirements(text);
-                    }
+            {mode !== 'reset' && (
+              <View>
+                <Text className={`text-sm font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                  Password
+                </Text>
+                <Animated.View
+                  style={{
+                    opacity: fadeAnim,
+                    transform: [{ translateY: slideAnim }],
                   }}
-                  placeholder="••••••••"
-                  placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
-                  secureTextEntry
-                  className={`rounded-xl px-5 py-4 text-lg ${
-                    isDark ? 'bg-gray-800 text-white border border-gray-700' : 'bg-gray-50 text-primary-dark border border-gray-200'
-                  }`}
-                />
-              </Animated.View>
-              {mode === 'signup' && (
-                <Animated.View 
-                  style={{ opacity: fadeAnim }}
-                  className="mt-3 px-2"
                 >
+                  <TextInput
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (mode === 'signup') {
+                        checkPasswordRequirements(text);
+                      }
+                    }}
+                    placeholder="••••••••"
+                    placeholderTextColor={isDark ? '#6b7280' : '#9ca3af'}
+                    secureTextEntry
+                    className={`rounded-xl px-5 py-4 text-lg ${
+                      isDark ? 'bg-gray-800 text-white border border-gray-700' : 'bg-gray-50 text-primary-dark border border-gray-200'
+                    }`}
+                  />
+                </Animated.View>
+                {mode === 'signup' && (
+                  <Animated.View 
+                    style={{ opacity: fadeAnim }}
+                    className="mt-3 px-2"
+                  >
                   <Text className={`text-xs font-semibold mb-2 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                     Password Requirements:
                   </Text>
@@ -518,8 +569,9 @@ export default function AuthScreen() {
                     </Text>
                   </View>
                 </Animated.View>
-              )}
-            </View>
+                )}
+              </View>
+            )}
 
             {/* Confirm Password - Only for Sign Up */}
             {mode === 'signup' && (
@@ -569,7 +621,7 @@ export default function AuthScreen() {
               }}
             >
               <TouchableOpacity
-                onPress={mode === 'signin' ? handleSignIn : handleSignUp}
+                onPress={mode === 'signin' ? handleSignIn : mode === 'signup' ? handleSignUp : handlePasswordReset}
                 disabled={loading}
                 className="bg-primary-accent rounded-2xl py-5 items-center shadow-lg mt-2"
                 activeOpacity={0.8}
@@ -578,22 +630,49 @@ export default function AuthScreen() {
                   <ActivityIndicator color="#1a1a1a" />
                 ) : (
                   <Text className="text-primary-dark text-lg font-bold">
-                    {mode === 'signin' ? 'Sign In' : 'Create Account'}
+                    {mode === 'signin' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
                   </Text>
                 )}
               </TouchableOpacity>
             </Animated.View>
 
+            {mode === 'signin' && (
+              <Animated.View style={{ opacity: fadeAnim }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    setMode('reset');
+                  }}
+                  disabled={loading}
+                  className="py-3 items-center"
+                >
+                  <Text className="text-primary-accent text-base font-semibold">
+                    Forgot Password?
+                  </Text>
+                </TouchableOpacity>
+              </Animated.View>
+            )}
+
             <Animated.View style={{ opacity: fadeAnim }}>
               <TouchableOpacity
-                onPress={() => setMode(mode === 'signin' ? 'signup' : 'signin')}
+                onPress={() => {
+                  if (mode === 'reset') {
+                    setMode('signin');
+                  } else {
+                    setMode(mode === 'signin' ? 'signup' : 'signin');
+                  }
+                }}
                 disabled={loading}
                 className="py-5 items-center"
               >
                 <Text className={`text-base ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  {mode === 'signin' ? "Don't have an account? " : 'Already have an account? '}
+                  {mode === 'reset' 
+                    ? 'Remember your password? '
+                    : mode === 'signin' 
+                    ? "Don't have an account? " 
+                    : 'Already have an account? '}
                   <Text className="text-primary-accent font-semibold">
-                    {mode === 'signin' ? 'Sign Up' : 'Sign In'}
+                    {mode === 'reset' ? 'Sign In' : mode === 'signin' ? 'Sign Up' : 'Sign In'}
                   </Text>
                 </Text>
               </TouchableOpacity>

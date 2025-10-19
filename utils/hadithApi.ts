@@ -48,7 +48,7 @@ export const SAHIH_BOOKS_ONLY = [
 // Cache for fetched hadiths
 let cachedHadiths: Hadith[] = [];
 let lastFetchTime: number = 0;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+const CACHE_DURATION = 2 * 60 * 60 * 1000; // 2 hours (more variety)
 
 /**
  * Validate that book is from Sahih collections only
@@ -92,33 +92,21 @@ export async function fetchHadithsFromApi(
       throw new Error('Invalid API response format');
     }
 
-    // Transform API hadiths to our format with translations
-    const hadiths: Hadith[] = await Promise.all(
-      data.hadiths.data.map(async (apiHadith, index) => {
-        // Try curated translation first, then auto-translate
-        let malayTranslation = getMalayTranslation(bookSlug, apiHadith.hadithNumber);
-        
-        if (!malayTranslation && apiHadith.hadithEnglish) {
-          // Auto-translate using translation API
-          try {
-            malayTranslation = await translateToMalay(apiHadith.hadithEnglish);
-          } catch (error) {
-            console.log(`Translation failed for hadith ${apiHadith.hadithNumber}`);
-            malayTranslation = '[Terjemahan Melayu akan datang]';
-          }
-        }
-        
-        return {
-          id: parseInt(apiHadith.hadithNumber) || index + 1,
-          text_en: apiHadith.hadithEnglish || '',
-          text_ar: apiHadith.hadithArabic || '',
-          text_ms: malayTranslation || '[Terjemahan Melayu akan datang]',
-          reference: `${formatBookName(bookSlug)}, ${apiHadith.hadithNumber}`,
-          narrator: apiHadith.englishNarrator || 'Prophet Muhammad ﷺ',
-          theme: apiHadith.headingEnglish || categorizeHadith(apiHadith.hadithEnglish),
-        };
-      })
-    );
+    // Transform API hadiths to our format (translations done lazily when needed)
+    const hadiths: Hadith[] = data.hadiths.data.map((apiHadith, index) => {
+      // Only check curated translations (instant, no API call)
+      const malayTranslation = getMalayTranslation(bookSlug, apiHadith.hadithNumber);
+      
+      return {
+        id: parseInt(apiHadith.hadithNumber) || index + 1,
+        text_en: apiHadith.hadithEnglish || '',
+        text_ar: apiHadith.hadithArabic || '',
+        text_ms: malayTranslation || '[Terjemahan Melayu akan datang]', // Lazy translate on display
+        reference: `${formatBookName(bookSlug)}, ${apiHadith.hadithNumber}`,
+        narrator: apiHadith.englishNarrator || 'Prophet Muhammad ﷺ',
+        theme: apiHadith.headingEnglish || categorizeHadith(apiHadith.hadithEnglish || ''),
+      };
+    });
 
     return hadiths;
   } catch (error) {
@@ -143,7 +131,7 @@ export async function getRandomHadithFromApi(): Promise<Hadith | null> {
     // Fetch fresh hadiths - ONLY from Sahih collections
     const randomBook = SAHIH_BOOKS_ONLY[Math.floor(Math.random() * SAHIH_BOOKS_ONLY.length)];
     
-    cachedHadiths = await fetchHadithsFromApi(randomBook, 50);
+    cachedHadiths = await fetchHadithsFromApi(randomBook, 100); // Fetch 100 for more variety
     lastFetchTime = now;
 
     const randomIndex = Math.floor(Math.random() * cachedHadiths.length);

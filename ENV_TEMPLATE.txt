@@ -1,0 +1,8 @@
+# 🔑 Reflectify Environment Variables Template
+# Copy this content to a new file named ".env" and fill in your actual values
+
+DEEPSEEK_API_KEY=sk-your-actual-deepseek-key-here
+HADITH_API_KEY=$2y$10$5dFKSCutokO12zw4fXBPJFdRkwyEe7TddgVFgMniwNpa951c4S
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_ANON_KEY=your-anon-key-here
+

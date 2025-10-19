@@ -128,6 +128,17 @@ export default function ReflectionScreen() {
         loadedHadith = await getRandomHadith();
       }
 
+      // Lazy translate Malay if needed (only for displayed hadith, not all 100)
+      if (loadedHadith.text_ms === '[Terjemahan Melayu akan datang]' && loadedHadith.text_en) {
+        try {
+          const { translateToMalay } = await import('../utils/translator');
+          const translated = await translateToMalay(loadedHadith.text_en);
+          loadedHadith.text_ms = translated;
+        } catch (error) {
+          console.log('Translation failed, using placeholder');
+        }
+      }
+      
       setHadith(loadedHadith);
       
       // Check if bookmarked

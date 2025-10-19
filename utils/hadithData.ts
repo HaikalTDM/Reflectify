@@ -113,23 +113,22 @@ export const hadithCollection: Hadith[] = [
 // - NO weak (Da'if) or fabricated hadiths in this app
 
 /**
- * Get random hadith (uses local collection for now)
- * Note: API integration temporarily disabled due to endpoint issues
+ * Get random hadith (tries API first, falls back to local)
  */
 export const getRandomHadith = async (): Promise<Hadith> => {
-  // Use local collection (all verified Sahih hadiths)
+  // Try API first for variety (7563 hadiths available)
+  try {
+    const apiHadith = await getRandomHadithFromApi();
+    if (apiHadith) {
+      return apiHadith;
+    }
+  } catch (error) {
+    console.log('⚠️  API unavailable, using local hadiths');
+  }
+  
+  // Fallback to local collection if API fails
   const randomIndex = Math.floor(Math.random() * hadithCollection.length);
   return hadithCollection[randomIndex];
-  
-  // API integration commented out temporarily
-  // try {
-  //   const apiHadith = await getRandomHadithFromApi();
-  //   if (apiHadith) {
-  //     return apiHadith;
-  //   }
-  // } catch (error) {
-  //   console.log('API unavailable, using local hadiths');
-  // }
 };
 
 /**

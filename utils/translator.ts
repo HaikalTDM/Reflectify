@@ -31,9 +31,10 @@ async function translateWithGoogle(text: string, targetLang: string = 'ms'): Pro
 }
 
 /**
- * Option 2: LibreTranslate (Free and Open Source)
- * Self-hosted or use public instance
+ * Option 2: LibreTranslate (DISABLED - JSON parse errors)
+ * Kept for reference, not used in production
  */
+/*
 async function translateWithLibre(text: string, targetLang: string = 'ms'): Promise<string> {
   try {
     const response = await fetch('https://libretranslate.de/translate', {
@@ -61,6 +62,7 @@ async function translateWithLibre(text: string, targetLang: string = 'ms'): Prom
     throw error;
   }
 }
+*/
 
 /**
  * Option 3: MyMemory Translation (Free, no API key)
@@ -153,10 +155,11 @@ export async function translateToMalay(text: string): Promise<string> {
   const textToTranslate = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   
   // Try translation services in order
+  // Translation services in order of reliability
+  // LibreTranslate removed due to consistent JSON parse errors
   const translators = [
     { name: 'Google', fn: translateWithGoogle },
     { name: 'MyMemory', fn: translateWithMyMemory },
-    { name: 'LibreTranslate', fn: translateWithLibre },
   ];
   
   for (const translator of translators) {
@@ -168,14 +171,21 @@ export async function translateToMalay(text: string): Promise<string> {
         // Cache successful translation
         translationCache.set(cacheKey, translated);
         
-        console.log(`✅ Translated via ${translator.name}`);
+        // Only log in dev mode
+        if (__DEV__) {
+          console.log(`✅ Translated via ${translator.name}`);
+        }
         return translated;
       } else {
-        console.log(`⚠️ ${translator.name} returned invalid translation, trying next...`);
+        if (__DEV__) {
+          console.log(`⚠️ ${translator.name} returned invalid translation, trying next...`);
+        }
         continue;
       }
     } catch (error) {
-      console.log(`❌ ${translator.name} failed, trying next...`);
+      if (__DEV__) {
+        console.log(`❌ ${translator.name} failed, trying next...`);
+      }
       continue;
     }
   }

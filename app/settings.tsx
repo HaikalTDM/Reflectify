@@ -913,6 +913,26 @@ export default function SettingsScreen() {
           </View>
         )}
 
+        {/* Support / Donation Button */}
+        <TouchableOpacity
+          onPress={async () => {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push('/donation');
+          }}
+          activeOpacity={0.7}
+          className={`mx-6 my-4 p-5 rounded-2xl ${isDark ? 'bg-primary-accent/10 border border-primary-accent/30' : 'bg-primary-accent/5 border border-primary-accent/20'}`}
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="heart" size={24} color="#d4af37" />
+            <Text className={`ml-3 text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
+              💚 Support Reflectify
+            </Text>
+          </View>
+          <Text className={`text-center mt-2 text-sm ${isDark ? 'text-primary-accent/70' : 'text-gray-600'}`}>
+            Help keep hadiths free • Earn Sadaqah Jariyah
+          </Text>
+        </TouchableOpacity>
+
         {/* Admin Panel Button - Only for Admin Users */}
         {isAdmin && (
           <TouchableOpacity
