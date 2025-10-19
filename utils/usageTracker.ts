@@ -1,15 +1,68 @@
 import { useEffect, useRef } from 'react';
-import { AppState, AppStateStatus } from 'react-native';
+import { AppState, AppStateStatus, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+import ScreenTime, { ScreenTimeUtils } from '../modules/screen-time';
 
 const USAGE_LIMIT_KEY = 'usageLimitMinutes';
 const USAGE_START_TIME_KEY = 'usageStartTime';
 const USAGE_ENABLED_KEY = 'usageLockEnabled';
+const LAST_CHECK_TIME_KEY = 'lastUsageCheckTime';
+const USE_DEVICE_SCREEN_TIME_KEY = 'useDeviceScreenTime';
 
 export type UsageLimit = '60' | '120' | 'disabled'; // 1 hour or 2 hours
 
 export const usageTracker = {
+  // Check if device screen time tracking is enabled
+  async isDeviceScreenTimeEnabled(): Promise<boolean> {
+    try {
+      if (Platform.OS !== 'android') return false;
+      const enabled = await AsyncStorage.getItem(USE_DEVICE_SCREEN_TIME_KEY);
+      return enabled === 'true';
+    } catch (error) {
+      return false;
+    }
+  },
+
+  // Enable device screen time tracking
+  async enableDeviceScreenTime(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(USE_DEVICE_SCREEN_TIME_KEY, 'true');
+    } catch (error) {
+      console.error('Error enabling device screen time:', error);
+    }
+  },
+
+  // Disable device screen time tracking
+  async disableDeviceScreenTime(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(USE_DEVICE_SCREEN_TIME_KEY, 'false');
+    } catch (error) {
+      console.error('Error disabling device screen time:', error);
+    }
+  },
+
+  // Check if has permission for device screen time
+  async hasScreenTimePermission(): Promise<boolean> {
+    try {
+      if (Platform.OS !== 'android') return false;
+      return await ScreenTimeUtils.checkPermission();
+    } catch (error) {
+      console.error('Error checking screen time permission:', error);
+      return false;
+    }
+  },
+
+  // Request screen time permission
+  async requestScreenTimePermission(): Promise<void> {
+    try {
+      if (Platform.OS !== 'android') return;
+      await ScreenTimeUtils.requestPermission();
+    } catch (error) {
+      console.error('Error requesting screen time permission:', error);
+    }
+  },
+
   // Get current usage limit setting
   async getUsageLimit(): Promise<UsageLimit> {
     try {
@@ -71,6 +124,55 @@ export const usageTracker = {
       const limit = await this.getUsageLimit();
       if (limit === 'disabled') return false;
 
+      const limitMinutes = parseInt(limit, 10);
+      
+      // Check if device screen time tracking is enabled
+      const useDeviceScreenTime = await this.isDeviceScreenTimeEnabled();
+      
+      if (useDeviceScreenTime && Platform.OS === 'android') {
+        // Use device screen time tracking
+        try {
+          const hasPermission = await this.hasScreenTimePermission();
+          if (!hasPermission) {
+            console.log('Screen time permission not granted, falling back to app-only tracking');
+            return this.checkAppUsageExceeded(limitMinutes);
+          }
+
+          // Get last check time
+          const lastCheckTime = await AsyncStorage.getItem(LAST_CHECK_TIME_KEY);
+          const lastCheck = lastCheckTime ? parseInt(lastCheckTime, 10) : 0;
+          
+          // Get screen time since last check
+          const now = Date.now();
+          const screenTimeSinceLastCheck = await ScreenTimeUtils.getScreenTimeSince(lastCheck || now);
+          
+          // Update last check time
+          await AsyncStorage.setItem(LAST_CHECK_TIME_KEY, now.toString());
+          
+          // Check if screen time exceeds limit
+          if (screenTimeSinceLastCheck >= limitMinutes) {
+            return true;
+          }
+          
+          return false;
+        } catch (error) {
+          console.error('Error using device screen time:', error);
+          // Fall back to app-only tracking
+          return this.checkAppUsageExceeded(limitMinutes);
+        }
+      } else {
+        // Use app-only tracking
+        return this.checkAppUsageExceeded(limitMinutes);
+      }
+    } catch (error) {
+      console.error('Error checking usage:', error);
+      return false;
+    }
+  },
+
+  // Check app-only usage (fallback method)
+  async checkAppUsageExceeded(limitMinutes: number): Promise<boolean> {
+    try {
       const startTime = await this.getStartTime();
       if (!startTime) {
         // No start time, set it now
@@ -80,11 +182,10 @@ export const usageTracker = {
 
       const now = Date.now();
       const elapsedMinutes = (now - startTime) / (1000 * 60);
-      const limitMinutes = parseInt(limit, 10);
 
       return elapsedMinutes >= limitMinutes;
     } catch (error) {
-      console.error('Error checking usage:', error);
+      console.error('Error checking app usage:', error);
       return false;
     }
   },
@@ -95,17 +196,53 @@ export const usageTracker = {
       const limit = await this.getUsageLimit();
       if (limit === 'disabled') return Infinity;
 
+      const limitMinutes = parseInt(limit, 10);
+
+      // Check if device screen time tracking is enabled
+      const useDeviceScreenTime = await this.isDeviceScreenTimeEnabled();
+      
+      if (useDeviceScreenTime && Platform.OS === 'android') {
+        try {
+          const hasPermission = await this.hasScreenTimePermission();
+          if (!hasPermission) {
+            return this.getAppRemainingTime(limitMinutes);
+          }
+
+          // Get last check time
+          const lastCheckTime = await AsyncStorage.getItem(LAST_CHECK_TIME_KEY);
+          const lastCheck = lastCheckTime ? parseInt(lastCheckTime, 10) : Date.now();
+          
+          // Get screen time since last check
+          const screenTimeSinceLastCheck = await ScreenTimeUtils.getScreenTimeSince(lastCheck);
+          const remaining = Math.max(0, limitMinutes - screenTimeSinceLastCheck);
+
+          return Math.floor(remaining);
+        } catch (error) {
+          console.error('Error getting device screen time remaining:', error);
+          return this.getAppRemainingTime(limitMinutes);
+        }
+      } else {
+        return this.getAppRemainingTime(limitMinutes);
+      }
+    } catch (error) {
+      console.error('Error getting remaining time:', error);
+      return 0;
+    }
+  },
+
+  // Get app-only remaining time (fallback method)
+  async getAppRemainingTime(limitMinutes: number): Promise<number> {
+    try {
       const startTime = await this.getStartTime();
-      if (!startTime) return parseInt(limit, 10);
+      if (!startTime) return limitMinutes;
 
       const now = Date.now();
       const elapsedMinutes = (now - startTime) / (1000 * 60);
-      const limitMinutes = parseInt(limit, 10);
       const remaining = Math.max(0, limitMinutes - elapsedMinutes);
 
       return Math.floor(remaining);
     } catch (error) {
-      console.error('Error getting remaining time:', error);
+      console.error('Error getting app remaining time:', error);
       return 0;
     }
   },

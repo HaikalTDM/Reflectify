@@ -1,0 +1,394 @@
+﻿The Vibe Coder's Blueprint: An End-to-End Guide to Android Development with Expo, EAS, and Cursor AI (2025 Edition)
+
+
+
+
+Section 1: Architecting the Modern Development Environment
+
+
+The foundation of a fluid and productive development experience—one that aligns with a "vibe coder" mentality—is paradoxically built upon a rigorous and well-architected initial setup. The seamless, high-level workflow desired is not the starting point but the earned outcome of establishing a professional development environment. This section details the essential, one-time investment required to transition from basic prototyping to a robust, production-ready architecture, thereby unlocking the automated and powerful workflow that modern tools like Expo Application Services (EAS) and Cursor AI enable.
+
+
+1.1 The Paradigm Shift: From Expo Go to Development Builds
+
+
+The journey into professional Expo development begins with a critical migration away from the Expo Go client. While Expo Go is an excellent tool for getting started quickly, its limitations become a significant bottleneck for applications that require custom native modules or a high-fidelity testing environment.1
+Expo Go is a pre-compiled application with a fixed set of native libraries from the Expo SDK. If an application's dependencies are all included within that pre-built set, Expo Go works seamlessly. However, the moment a project requires a native library not included in Expo Go—such as many popular packages for payments, advanced animations, or specific hardware interactions—developers get stuck.1
+The solution is the Development Build. A development build is a custom version of an application that includes the expo-dev-client library and is compiled with the project's specific set of native dependencies.2 This creates a debug-enabled app that can be installed directly on an emulator or physical device. It provides two fundamental advantages:
+1. Unlimited Native Extensibility: Developers can incorporate any React Native-compatible native library into their project, breaking free from the constraints of Expo Go's bundled SDK.
+2. Production Parity: A development build provides an environment that much more closely mirrors the final production app. This helps catch integration issues and native-level bugs early in the development cycle, which would be invisible in the Expo Go environment.3
+This transition is the non-negotiable first step for any serious application, transforming the development process from one of constrained prototyping to one of limitless, production-focused engineering.
+
+
+1.2 Setting Up the Command Center: Installing and Authenticating EAS CLI
+
+
+The central tool for interacting with Expo's suite of cloud services is the Expo Application Services Command Line Interface (EAS CLI). It is the command center for initiating builds, managing credentials, submitting to app stores, and more.
+The initial setup involves two primary commands executed in the terminal. First, the CLI must be installed globally using the Node Package Manager (npm):
+
+
+Bash
+
+
+
+
+npm install -g eas-cli
+
+Once installed, the developer must authenticate their local machine with their Expo account. This creates a secure link that authorizes the CLI to act on their behalf. This is accomplished with the login command 4:
+
+
+Bash
+
+
+
+
+eas login
+
+This command will prompt for Expo account credentials. An alias for this command is eas account:login.4 To verify the currently authenticated user or to log out, the commands eas whoami (alias for eas account:view) and eas logout (alias for eas account:logout) can be used, respectively.4 This simple authentication step is a prerequisite for all subsequent EAS operations.
+For quick reference, the following table outlines the most essential EAS CLI commands that will be used throughout the application lifecycle.
+Command
+	Primary Function
+	eas login
+	Authenticate with your Expo account.
+	eas whoami
+	Check the currently logged-in user.
+	eas build:configure
+	Initialize the project for EAS Build and generate eas.json.
+	eas build
+	Start a new build on EAS servers or locally.
+	eas submit
+	Submit a completed build to the app stores.
+	eas credentials
+	Manage app signing credentials.
+	eas secret:push
+	Push local environment variables to EAS Secrets.
+	
+
+1.3 Project Initialization and First-Time Configuration
+
+
+With the EAS CLI installed and authenticated, the next step is to configure the specific Expo project to work with EAS. This is achieved with a single command run from the root of the project directory 2:
+
+
+Bash
+
+
+
+
+eas build:configure
+
+This command orchestrates several critical initialization tasks. First, it communicates with Expo's servers and links the local project directory to a project on the EAS dashboard. It achieves this by adding a unique project ID to the app's configuration file, typically under expo.extra.eas.projectId in app.json.2
+Second, and most importantly, it generates the eas.json file in the project root. This file will serve as the central configuration hub for all build and submission profiles, which will be explored in detail in the next section.
+During this process, the CLI will prompt for necessary information if it's not already present in the project's configuration. A key piece of information for Android is the package name. The CLI will prompt the user to specify the android.package value in app.json.2 This is a unique identifier for the app on the Google Play Store, conventionally following a reverse domain name format (e.g., com.companyname.appname).5 Completing this step finalizes the project's onboarding onto the EAS platform, making it ready for its first cloud build.
+
+
+Section 2: The Build Control Panel: Mastering eas.json
+
+
+The eas.json file is the declarative heart of the EAS workflow. It is more than a simple settings file; it is a version-controllable manifest that defines the entire application delivery pipeline. By mastering its structure and capabilities, a developer transitions from manually building applications to architecting an automated, reproducible system. This "configuration-as-code" approach is a powerful enabler of the low-friction workflow that modern developers seek, as the upfront investment in configuration pays dividends through the elimination of manual, error-prone build steps.
+
+
+2.1 Anatomy of eas.json: Profiles and Inheritance
+
+
+The core organizational concept within eas.json is the "build profile." A build profile is a named collection of configurations tailored for a specific type of build.6 All build profiles are defined under the top-level build key. By default, running eas build:configure generates three standard profiles 2:
+* development: For creating debug builds with developer tools for local development and testing.
+* preview: For creating internal distribution builds for QA teams and stakeholders to test in a production-like environment.
+* production: For creating the final, optimized release build intended for submission to the app stores.
+A powerful feature for maintaining a clean and efficient configuration is profile inheritance. Using the extends key, one profile can inherit all the settings from another, allowing for specific overrides without duplicating code. This DRY (Don't Repeat Yourself) principle is fundamental to scalable configuration management.7 For example, a preview profile can extend the production profile to share common settings like the Node.js version, while overriding only the distribution method to be internal instead of store.6
+
+
+2.2 Configuring Android Build Profiles in Detail
+
+
+Each build profile can contain an android key for platform-specific configurations. The behavior of an Android build is determined by the settings within the chosen profile's android block. Understanding the purpose and configuration of each default profile is crucial for establishing a correct and efficient build pipeline.
+Profile Name
+	Primary Use Case
+	Key eas.json Settings (Android)
+	Output Artifact
+	Typical Build Command
+	development
+	Debugging & rapid iteration with native code
+	"developmentClient": true, "distribution": "internal"
+	.apk
+	eas build --profile development --platform android
+	preview
+	Internal QA & stakeholder feedback
+	"distribution": "internal", "buildType": "apk"
+	.apk
+	eas build --profile preview --platform android
+	production
+	Final release for Google Play Store
+	{} (uses defaults), "distribution": "store"
+	.aab
+	eas build --platform android
+	
+
+development Profile
+
+
+The development profile is designed for active development and debugging. Its primary setting, "developmentClient": true, signals to EAS to include developer tools and create a debuggable build.6 It also typically sets "distribution": "internal", which produces a standard Android Package (.apk) file. This .apk can be easily shared via a URL and installed directly on both Android emulators and physical devices, streamlining the testing process.6
+
+
+preview Profile
+
+
+The preview profile is for creating builds that are functionally equivalent to production but are intended for internal testing by QA teams or other stakeholders.2 Like the development profile, it uses "distribution": "internal" to generate a shareable build.6 A common and recommended practice for this profile is to explicitly set "buildType": "apk".6 While the Google Play Store requires an Android App Bundle (.aab), an .apk is directly installable, making it far more convenient for internal testers who just need to click a link to install the app.
+
+
+production Profile
+
+
+The production profile is used to create the final, optimized application binary for submission to the Google Play Store.10 This profile often appears empty ({}) in eas.json because it relies on EAS's sensible defaults for store builds.6 The most important default is that the distribution is set to "store". This instructs EAS to produce an .aab file, which is Google's required format for all new apps.8 Unlike an .apk, an .aab cannot be installed directly on a device; it must be uploaded to the Play Store, which then processes it to generate optimized APKs for different device configurations.
+
+
+2.3 Managing Secrets and Environment Variables
+
+
+Production applications invariably require sensitive information like API keys, which should never be committed to source control. EAS provides a secure and flexible system for managing these secrets, which are injected into the build environment at build time.
+The recommended approach is to use EAS Secrets, a centralized secret management service integrated with the Expo dashboard and CLI.11 Developers can manage secrets in two primary ways:
+1. Via the Expo Dashboard: Secrets can be created and managed through a web interface on the project's dashboard page.11
+2. Via the EAS CLI: For a more streamlined, code-centric workflow, local .env files can be synchronized with EAS Secrets using a single command: eas secret:push --scope project --env-file.env.13
+Once secrets are stored in EAS, they can be exposed as environment variables during the build process by defining them in the env block of a build profile in eas.json. This allows for different values per environment, such as using a staging API key for preview builds and a production key for production builds.6
+Example eas.json configuration using secrets:
+
+
+JSON
+
+
+
+
+{
+ "build": {
+   "preview": {
+     "env": {
+       "API_KEY": "${EXPO_PUBLIC_STAGING_API_KEY}"
+     }
+   },
+   "production": {
+     "env": {
+       "API_KEY": "${EXPO_PUBLIC_PRODUCTION_API_KEY}"
+     }
+   }
+ }
+}
+
+
+
+2.4 Handling Android Credentials (Keystores)
+
+
+To be published on the Google Play Store, every Android application must be digitally signed with a cryptographic key, which is stored in a file called a keystore.14 Managing this keystore is a critical security responsibility, and EAS offers two distinct models for handling it, configured via the credentialsSource property in eas.json.
+1. remote (Default and Recommended): When credentialsSource is set to "remote" or omitted, EAS takes on the full responsibility of generating, storing, and securing the application's keystore.8 EAS handles the signing process automatically during the build. This is the ideal approach for new projects and for developers who prefer a managed, "hands-off" solution that minimizes security risks.15 If a keystore is lost, it can be a catastrophic, unrecoverable event, so offloading this responsibility to EAS is highly advisable.
+2. local: For projects that are migrating to EAS from a previous build system, or for organizations with strict policies requiring them to manage their own cryptographic keys, the "local" option is available. This tells EAS to look for a credentials.json file in the project root.16 This file contains the paths to the local keystore file and the necessary passwords to use it for signing.16 When using this method, it is absolutely imperative that both the credentials.json file and the keystore file itself are added to .gitignore to prevent them from being committed to the source code repository and potentially exposed.16
+
+
+Section 3: The AI-Accelerated Workflow: Developing with Cursor
+
+
+The effectiveness of an AI coding assistant like Cursor is not derived from its ability to magically intuit a developer's needs from a vague prompt. Rather, its power is unlocked when it is treated as an incredibly fast and knowledgeable "junior developer" co-pilot. It requires clear, specific, and incremental instructions to produce high-quality, production-ready code. This section outlines a structured workflow for interacting with Cursor within an Expo project, shifting the mental model from "asking for a feature" to "directing a co-pilot" to achieve maximum velocity and accuracy.
+
+
+3.1 Optimizing Cursor for the Expo Ecosystem
+
+
+To perform optimally, Cursor's AI models need context about the specific technologies, libraries, and coding conventions of the project. Providing this context upfront is the first step in streamlining the development workflow.
+* Adding Custom Documentation: A crucial optimization is to add the official Expo documentation to Cursor's knowledge base. This can be done through the editor's settings (Settings -> Features -> Docs).17 By indexing this documentation, Cursor's code generation and suggestions will be more accurate and aligned with the latest Expo APIs and best practices. If the indexing process fails, a pragmatic fallback is to manually paste relevant sections of the documentation directly into the chat context for a specific task.17
+* Enforcing Conventions with Cursorrules: Cursor allows for the creation of project-specific rule files that guide the AI's output. These rules can enforce conventions for code style, file structure, and technology usage.17 For an Expo project, these rules can specify a preference for functional components, TypeScript interfaces over types, and the use of specific libraries for state management or styling, ensuring consistency across all AI-generated code.18
+
+
+3.2 From Prompt to Component: A Practical Workflow
+
+
+Building a new feature with Cursor should follow a structured, iterative process that leverages its different interaction models.
+1. Generate Boilerplate Code: The process can begin with a high-level prompt using Cursor's inline command palette (Cmd/Ctrl + K). A prompt like, "Create a new functional component for a user profile screen with a placeholder for an avatar, name, and email" can instantly generate the initial file structure and boilerplate code, saving minutes of manual typing.20
+2. Iterate and Refine with Chat: For more complex logic and functionality, the chat interface (Cmd/Ctrl + L) is more suitable. This allows for a conversational and iterative approach. After generating the initial component, a developer can issue a series of follow-up prompts 19:
+   * "Fetch user data from the /api/user/{id} endpoint and display it."
+   * "Add a loading state while the data is being fetched."
+   * "Implement error handling for the API call and show an alert if it fails."
+   * "Use the Zustand library to manage the user profile state globally."
+3. Leverage Full Codebase Context: One of Cursor's most powerful features is its ability to understand the entire codebase. This enables complex, multi-file operations. For instance, a developer could prompt: "Refactor the authentication logic. Move all API calls from the Login and Register components into a new services/authService.ts file, and update the components to import and use the new service." Cursor can then perform this refactoring across multiple files in a single operation.20
+
+
+3.3 AI-Assisted Refactoring and Debugging
+
+
+Refactoring and debugging are often the most time-intensive aspects of software development. Cursor provides tools to significantly accelerate these processes.
+* Structured Refactoring: A systematic approach to refactoring with Cursor yields the best results. A developer should first ask Cursor to analyze and explain a complex piece of code. Next, they can ask it to propose a refactoring strategy (e.g., "Suggest a strategy to break this monolithic component into smaller, reusable hooks and components"). Finally, they can instruct Cursor to implement the proposed changes.21 Real-world user feedback strongly suggests that breaking down large refactoring tasks into smaller, incremental chunks (e.g., refactoring one function or one part of a component at a time) is far more reliable than a single, large-scale request.22
+* Intelligent Debugging: When faced with a bug or an error message, a developer can paste the error directly into Cursor's chat and ask for an explanation and potential solutions. For behavioral bugs without clear errors, the issue can be described in natural language (e.g., "When I click the 'Add to Cart' button twice quickly, two items are added instead of one. How can I prevent this?"). Cursor can analyze the relevant code and suggest fixes, such as disabling the button during the API call.20
+
+
+Section 4: From Code to Cloud: The Build and Submission Pipeline
+
+
+The culmination of the development process is the transformation of source code into a distributable application and its delivery to the Google Play Store. The EAS build and submit pipeline automates this complex process. However, the seamless automation it offers is contingent upon a series of manual, one-time setup procedures mandated by Google. This "first manual handshake" is a critical onboarding ritual for every new application; overlooking it is a common source of frustration. This section clearly separates the one-time setup from the repeatable, automated workflow to ensure a successful first deployment.
+
+
+4.1 The Android Build Process: A Step-by-Step Guide
+
+
+The eas build command is the entry point to the cloud build process. It abstracts away the complexities of setting up a native build environment, managing dependencies, and signing the application.
+The process begins by invoking the command with the target platform and the desired profile from eas.json 2:
+
+
+Bash
+
+
+
+
+eas build --platform android --profile production
+
+This command initiates a two-phase process:
+1. Local Phase: The EAS CLI performs several preparatory steps on the developer's local machine. It checks for uncommitted changes in the git repository, gathers the necessary signing credentials (either from EAS servers or local files), creates a compressed tarball of the project source code (respecting .gitignore), and uploads this tarball to a secure EAS Build server.14
+2. Remote Phase: Once the project is uploaded, the remote EAS Build service takes over. It spins up a clean, isolated Docker container with the appropriate Android SDK, Java version, and other build tools. It then unpacks the project, installs all npm dependencies, and runs npx expo prebuild if it's a managed workflow project to generate the native android directory. The service then injects the signing credentials and executes the appropriate Gradle command (e.g., :app:bundleRelease for a production build) to compile the native code and bundle the JavaScript. The final artifact—either an .apk or an .aab—is then created, signed, and uploaded to a secure storage location, from where it can be downloaded or submitted.14
+
+
+4.2 Submitting to the Google Play Store with eas submit
+
+
+After a successful production build generates an .aab file, the eas submit command is used to deliver it to the Google Play Store. Before this command can be used, several one-time prerequisites must be met in the Google Play Console:
+* Google Play Developer Account: A developer account must be created and paid for.5
+* Application Listing: A new application must be created in the Google Play Console, which involves providing details like the app name and privacy policy.5
+* Google Service Account: A service account must be created within the Google Cloud Platform, and a JSON key file must be downloaded. This key grants EAS programmatic permission to upload builds on the developer's behalf.5 The path to this key is then configured in the submit profile of eas.json.
+* Manual First Upload: Due to a limitation in the Google Play API, the very first binary for a new application must be uploaded manually through the Google Play Console web interface. All subsequent submissions can be automated.5
+Once these prerequisites are complete, a submission can be initiated with:
+
+
+Bash
+
+
+
+
+eas submit --platform android
+
+This command will find the latest compatible build, use the configured service account key to authenticate with Google, and upload the .aab file to the specified release track (e.g., internal, beta, or production), as defined in the submit profile in eas.json.8
+
+
+4.3 Automating the Full Pipeline
+
+
+For maximum efficiency, the build and submit steps can be chained into a single, automated command. The --auto-submit flag instructs EAS to immediately trigger a submission as soon as the corresponding build has finished successfully.5
+
+
+Bash
+
+
+
+
+eas build --platform android --profile production --auto-submit
+
+This command encapsulates the entire deployment pipeline, taking the latest code from the developer's machine all the way to the Google Play Store with a single action. This level of automation is the ultimate goal of the modern workflow, freeing the developer to focus on building features rather than managing complex deployment logistics.
+
+
+Section 5: Proactive Troubleshooting and Maintenance
+
+
+Even in a highly automated workflow, issues are inevitable. A resilient development process includes a systematic approach to debugging build failures and maintaining the application post-launch. The most effective strategy involves a "Cloud-Local Debugging Loop," where developers leverage the convenience of cloud builds for routine work but are prepared to drop down to a mirrored local environment to diagnose and resolve complex failures. This section provides a field guide for this process, combining official documentation with practical solutions from the developer community.
+
+
+5.1 A Systematic Approach to Debugging Build Failures
+
+
+When an EAS build fails, a structured diagnostic process can quickly identify the root cause.
+1. Locate the Logs: The first step is always to examine the build logs. On the Expo dashboard, navigate to the specific build's details page. The logs are broken down into phases; the error will be in the first phase that is marked as failed. Subsequent failures are often cascading effects of this initial problem.28
+2. Identify the Error Type: Build errors generally fall into two categories. JavaScript errors typically come from the Metro bundler and will include messages like Unable to resolve module. These often point to incorrect import paths or files missing from the build.28 Native errors originate from Gradle (for Android) and are usually more complex, pointing to issues with native dependencies, resource compilation, or signing configurations.
+3. Run expo doctor: Before diving deep into logs, running npx expo doctor locally is a valuable first step. This command checks for common project misconfigurations and dependency version mismatches within the Expo SDK, which are a frequent source of build failures.28
+
+
+5.2 Common Android Build Errors and Their Solutions
+
+
+The following matrix details common Android build errors encountered in the wild, their likely causes, and recommended solutions, drawing from real-world community discussions.
+
+
+Error Message (or Symptom)
+	Likely Cause(s)
+	Recommended Solution(s)
+	Manifest merger failed : android:exported needs to be explicitly specified...
+	App targets Android 12+ and an <activity> with an <intent-filter> is missing the android:exported attribute.
+	Add android:exported="true" to the relevant <activity> tag in AndroidManifest.xml or through a config plugin.30
+	Execution failed for task ':app:mergeReleaseResources'
+	An issue with Android Asset Packaging Tool (AAPT). Often caused by a corrupted or malformed image/asset file (e.g., a .png file that is not a valid PNG).31
+	Inspect all image and font assets recently added to the project. Remove or replace any potentially corrupt files and attempt the build again.
+	No matching variant of project :some-library was found.
+	A native dependency does not have a build variant that matches the one being built (e.g., the library lacks a release variant). This can be due to library incompatibility or misconfiguration.33
+	Ensure all native dependencies are compatible with the project's React Native and Expo SDK versions. Check the library's documentation for any specific Gradle configuration required. A clean install (rm -rf node_modules && npm install) followed by npx expo prebuild --clean can sometimes resolve this.33
+	java.util.zip.ZipException: zip END header not found
+	This error typically indicates a corrupted file in the Gradle cache or a dependency that was not downloaded correctly during the build process.33
+	This is often resolved by running a clean build. On EAS, this happens automatically. If debugging locally, delete the .gradle directory in both the project's android folder and the user's home directory.
+	None of these files exist or ENOENT: no such file or directory
+	The build process is trying to access a file that was not included in the uploaded project tarball, usually because it is listed in .gitignore.28 Can also be caused by file system case-sensitivity issues (e.g., Image.PNG vs image.png).34
+	If the file is not sensitive, remove it from .gitignore. If it contains secrets, use EAS Secrets to provide the values as environment variables instead of including the file in the build.28 Verify that all asset filenames match their import statements exactly, including case.
+	SDK location not found. Define a valid SDK location with an ANDROID_HOME environment variable...
+	This error occurs during local builds (eas build --local) when the path to the Android SDK is not correctly configured in the shell environment.35
+	Ensure that the ANDROID_HOME environment variable is set correctly in the system's shell profile (e.g., .zshrc, .bash_profile) and points to the location of the installed Android SDK.
+	
+
+5.3 The Ultimate Debugging Tool: The Local Release Build
+
+
+When cloud logs are ambiguous, the most powerful debugging technique is to replicate the production build environment locally. This provides full access to detailed logs and native debugging tools. There are two primary commands for this:
+1. eas build --platform android --profile production --local: This command attempts to run the exact same build steps as the remote EAS service, but on the local machine.28
+2. npx expo run:android --variant release: This command builds and installs the release variant of the app directly onto a connected device or emulator, bypassing some of the EAS-specific steps but still compiling the native code in release mode.28
+Running a local release build allows a developer to use Android Studio's Logcat tool to view real-time, unfiltered logs from the device as the app attempts to launch. This is invaluable for diagnosing crashes that happen immediately on startup, as the detailed Java or Kotlin stack trace will be printed directly to Logcat, revealing the exact line of native code that caused the failure.3 This level of transparency is often the key to solving the most stubborn native build or runtime errors.
+
+
+5.4 Debugging Post-Launch with EAS Update
+
+
+After an application is released, EAS Update enables the deployment of over-the-air (OTA) updates, pushing new JavaScript and assets to users without requiring a new store submission. Debugging this process has its own set of challenges.
+The primary tool for this is the Deployments page on the Expo dashboard. This interface provides a clear visual representation of which builds are associated with which update channels, and which specific updates they are receiving.37
+Common EAS Update issues include:
+* Runtime Version Mismatch: An update is published with a runtimeVersion that does not match the native build installed on the user's device. The update will be ignored. The solution is to ensure the runtimeVersion in app.json is consistent between the build and the update.
+* Incorrect Channel Mapping: A build is configured for the production channel, but the new update was mistakenly published to a preview branch. The build will not receive the update.
+* Crashing Updates and Rollbacks: If a new update contains a bug that causes the app to crash immediately after launch, expo-updates will automatically detect this and roll back to the last known good version (either a previous update or the code embedded in the original binary). When this occurs, the immediate mitigation step is to re-publish a previous, stable update to the same channel. This ensures that new users receive a working version of the app while the bug is being fixed.37
+
+
+Conclusion
+
+
+The modern mobile development landscape, particularly for Android within the Expo ecosystem, presents a powerful synthesis of high-level abstraction and sophisticated automation. The "vibe coder" ethos—a focus on rapid iteration, intuitive tooling, and a seamless developer experience—is not just achievable but is the intended outcome of a workflow built upon Expo, EAS, and Cursor AI.
+This report has established a comprehensive blueprint for this workflow, leading from initial concept to a production-ready application in the Google Play Store. The key pillars of this architecture are:
+1. A Professional Foundation: The transition from Expo Go to Development Builds is the foundational step that unlocks true native capability and creates a reliable testing environment. The initial, structured setup of the EAS CLI and project configuration is the necessary investment to enable the subsequent automated "vibe."
+2. Declarative Automation through eas.json: The eas.json file is the control panel for the entire build and submission pipeline. By mastering its profiles, inheritance, and configurations for credentials and secrets, developers can define their entire delivery process as version-controlled code, achieving reproducible and automated builds.
+3. AI as a Co-Pilot: The Cursor IDE is most effectively leveraged not as a magic wand but as a highly capable "junior developer." A structured workflow of providing clear context, issuing incremental prompts, and reviewing the generated code transforms the development process, dramatically accelerating feature creation, refactoring, and debugging.
+4. A Hybrid Debugging Model: The most resilient workflow is not purely cloud-based. It is a Cloud-Local Debugging Loop that combines the speed and consistency of remote EAS builds with the power and transparency of local release builds using tools like Android Studio's Logcat. This hybrid approach provides a solution for any level of issue, from simple dependency mismatches to complex native crashes.
+By embracing this integrated stack and its corresponding workflows, developers can significantly reduce the friction traditionally associated with mobile development. They can offload the complexities of build environments, credential management, and store submissions to EAS, while simultaneously amplifying their own coding velocity with Cursor. The result is a development process that is not only more efficient and less error-prone but also more aligned with the creative and feature-focused mindset of the modern developer. This blueprint provides the necessary documentation and strategic guidance to successfully navigate this ecosystem through 2025 and beyond.
+Works cited
+1. How to configure a development build | EAS Tutorial - YouTube, accessed on October 20, 2025, https://www.youtube.com/watch?v=uQCE9zl3dXU
+2. Build your App | Lexicon, accessed on October 20, 2025, https://docs.lexicon.is/version-2.2.0/tutorial/building/
+3. Solving Real Android Build Issues in React Native/Expo — A Step-by-Step Guide - Medium, accessed on October 20, 2025, https://medium.com/decoded-by-kodex/solving-real-android-build-issues-in-react-native-expo-a-step-by-step-guide-6f66d240d731
+4. expo/eas-cli: Fastest way to build, submit, and update iOS and Android apps - GitHub, accessed on October 20, 2025, https://github.com/expo/eas-cli
+5. Submit to the Google Play Store - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/submit/android/
+6. Configure EAS Build with eas.json - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/build/eas-json/
+7. eas.json | Open Source at Infinite Red, accessed on October 20, 2025, https://docs.infinite.red/ignite-cli/boilerplate/eas.json/
+8. Configuration with eas.json - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/eas/json/
+9. Build your Expo app | - What is AppLaunchKit? |, accessed on October 20, 2025, https://docs.applaunchk.it/build-and-deploy/expo
+10. Create an Android Release Build with EAS and Upload to Google ..., accessed on October 20, 2025, https://egghead.io/lessons/react-native-create-an-android-release-build-with-eas-and-upload-to-google-play-store
+11. Right Way to Hide your API keys and credentials on your Expo App | by Rushit Jivani, accessed on October 20, 2025, https://levelup.gitconnected.com/right-way-to-hide-your-api-keys-and-credentials-on-your-expo-app-ef828de1e168
+12. Environment variables in EAS - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/eas/environment-variables/
+13. Solution for Using Environment Variables in Expo with EAS Build - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/expo/comments/1feh09e/solution_for_using_environment_variables_in_expo/
+14. Android build process - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/build-reference/android-builds/
+15. App credentials - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/app-signing/app-credentials/
+16. Using local credentials - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/app-signing/local-credentials/
+17. Build Your AI App in 10 Minutes with Expo and Cursor | Instructa Courses, accessed on October 20, 2025, https://www.instructa.ai/blog/cursor-ai/build-your-ai-app-in-10-minutes
+18. Rules for Expo - Cursor Directory, accessed on October 20, 2025, https://cursor.directory/rules/expo
+19. Prompt for AI – Structured Guide for Building a React Native + Supabase + Expo App, accessed on October 20, 2025, https://forum.cursor.com/t/prompt-for-ai-structured-guide-for-building-a-react-native-supabase-expo-app/109822
+20. Building Mobile Apps with Cursor AI: A Complete Guide from ..., accessed on October 20, 2025, https://medium.com/@wqsbhtt/building-mobile-apps-with-cursor-ai-a-complete-guide-from-beginner-to-advanced-4f8a2462e52d
+21. Refactoring Code with Cursor - Modern Clean Code Techniques, accessed on October 20, 2025, https://cursorideguide.com/development/refactoring-code-with-cursor
+22. Refactoring with cursor experience : r/cursor - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/cursor/comments/1i3sdtm/refactoring_with_cursor_experience/
+23. Publishing Your App to the Google Play Store - Draftbit, accessed on October 20, 2025, https://docs.draftbit.com/docs/app-store-publishing-android
+24. How to create a production build for Android | EAS Tutorial - YouTube, accessed on October 20, 2025, https://www.youtube.com/watch?v=nxlt8uwqhpE
+25. EAS Submit - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/submit/introduction/
+26. Can I automate pushing to an Open Testing release on playstore using EAS Submit? : r/expo - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/expo/comments/16c62rx/can_i_automate_pushing_to_an_open_testing_release/
+27. Expo Application Services (EAS), accessed on October 20, 2025, https://expo.dev/eas
+28. Troubleshoot build errors and crashes - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/build-reference/troubleshooting/
+29. EAS iOS build started to fail out of nowhere. : r/expo - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/expo/comments/1hr0rxe/eas_ios_build_started_to_fail_out_of_nowhere/
+30. react native - Expo EAS build fails on Android - Stack Overflow, accessed on October 20, 2025, https://stackoverflow.com/questions/72201472/expo-eas-build-fails-on-android
+31. Need Help. EAS Build keeps failing : r/expo - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/expo/comments/1c3kmfn/need_help_eas_build_keeps_failing/
+32. I've an error when I was building my react native based android app to expo client, accessed on October 20, 2025, https://discuss.gradle.org/t/ive-an-error-when-i-was-building-my-react-native-based-android-app-to-expo-client/45092
+33. What's the best way to debug EAS build fails? : r/expo - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/expo/comments/1icnxdj/whats_the_best_way_to_debug_eas_build_fails/
+34. Expo EAS build failed, can't publish | The Draftbit Community, accessed on October 20, 2025, https://community.draftbit.com/c/help/expo-eas-build-failed-can-t-publish
+35. eas local builds keep failing : r/expo - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/expo/comments/1l1lgu0/eas_local_builds_keep_failing/
+36. Help please, i have this react native + expo app. I've built the APK with EAS. But i have this problem. App crash on start. Has this happened to anyone already? what is the solution? - Reddit, accessed on October 20, 2025, https://www.reddit.com/r/reactnative/comments/10by2la/help_please_i_have_this_react_native_expo_app_ive/
+37. EAS Update Debugging - Expo Documentation, accessed on October 20, 2025, https://docs.expo.dev/eas-update/debug/

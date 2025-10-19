@@ -58,7 +58,8 @@
         {
           "microphonePermission": false
         }
-      ]
+      ],
+      "./modules/screen-time/app.plugin.js"
     ],
     "experiments": {
       "typedRoutes": true

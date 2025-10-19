@@ -1,0 +1,11 @@
+{
+  "name": "screen-time-module",
+  "version": "1.0.0",
+  "description": "Native module for Android screen time tracking",
+  "main": "index.ts",
+  "scripts": {},
+  "keywords": ["expo", "android", "screen-time", "usage-stats"],
+  "author": "",
+  "license": "MIT"
+}
+

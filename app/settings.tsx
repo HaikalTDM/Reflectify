@@ -8,6 +8,7 @@ import {
   Animated,
   Easing,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -44,6 +45,10 @@ export default function SettingsScreen() {
   const [syncing, setSyncing] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [soundVolume, setSoundVolume] = useState<'low' | 'medium' | 'high'>('high');
+  
+  // Device Screen Time Tracking
+  const [deviceScreenTimeEnabled, setDeviceScreenTimeEnabled] = useState(false);
+  const [hasScreenTimePermission, setHasScreenTimePermission] = useState(false);
   
   // PIN Protection
   const [showPinModal, setShowPinModal] = useState(false);
@@ -151,6 +156,14 @@ export default function SettingsScreen() {
           setSyncEnabled(syncSetting === 'true');
         }
       }
+
+      // Load device screen time tracking settings
+      const deviceScreenTime = await usageTracker.isDeviceScreenTimeEnabled();
+      setDeviceScreenTimeEnabled(deviceScreenTime);
+      
+      // Check permission
+      const permission = await usageTracker.hasScreenTimePermission();
+      setHasScreenTimePermission(permission);
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -332,6 +345,74 @@ export default function SettingsScreen() {
     } else {
       showToast({
         message: '⚠️ Usage lock disabled',
+        type: 'info',
+        duration: 2000,
+      });
+    }
+  };
+
+  const handleDeviceScreenTimeToggle = async (value: boolean) => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+
+    if (value) {
+      // Check if permission is granted
+      const hasPermission = await usageTracker.hasScreenTimePermission();
+      
+      if (!hasPermission) {
+        // Request permission first
+        showAlert({
+          title: 'Permission Required',
+          message: 'To track device-wide screen time, Reflectify needs access to usage stats. You\'ll be taken to system settings to grant this permission.',
+          icon: 'information-circle',
+          iconColor: '#d4af37',
+          buttons: [
+            { text: 'Cancel', style: 'cancel' },
+            {
+              text: 'Open Settings',
+              onPress: async () => {
+                await usageTracker.requestScreenTimePermission();
+                
+                // Check again after user returns (with a delay)
+                setTimeout(async () => {
+                  const permissionGranted = await usageTracker.hasScreenTimePermission();
+                  setHasScreenTimePermission(permissionGranted);
+                  
+                  if (permissionGranted) {
+                    await usageTracker.enableDeviceScreenTime();
+                    setDeviceScreenTimeEnabled(true);
+                    showToast({
+                      message: '✅ Device screen time tracking enabled',
+                      type: 'success',
+                      duration: 3000,
+                    });
+                  } else {
+                    showToast({
+                      message: 'Permission not granted',
+                      type: 'error',
+                      duration: 2000,
+                    });
+                  }
+                }, 1000);
+              },
+            },
+          ],
+        });
+      } else {
+        // Permission already granted, just enable
+        await usageTracker.enableDeviceScreenTime();
+        setDeviceScreenTimeEnabled(true);
+        showToast({
+          message: '✅ Device screen time tracking enabled',
+          type: 'success',
+          duration: 3000,
+        });
+      }
+    } else {
+      // Disable device screen time tracking
+      await usageTracker.disableDeviceScreenTime();
+      setDeviceScreenTimeEnabled(false);
+      showToast({
+        message: 'Device screen time tracking disabled',
         type: 'info',
         duration: 2000,
       });
@@ -584,13 +665,47 @@ export default function SettingsScreen() {
         >
           <View className="flex-row items-center justify-center mb-2">
             <Text className="text-2xl mr-2">💚</Text>
-            <Text className={`text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
+            <Text 
+              className={`text-lg font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}
+              style={{
+                lineHeight: 24,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Support Reflectify
             </Text>
           </View>
-          <Text className={`text-center text-sm leading-5 ${isDark ? 'text-primary-accent/80' : 'text-gray-700'}`}>
+          <Text 
+            className={`text-center text-sm mb-3 ${isDark ? 'text-primary-accent/80' : 'text-gray-700'}`}
+            style={{
+              lineHeight: 20,
+              includeFontPadding: false
+            }}
+          >
             Help keep hadiths free • Earn Sadaqah Jariyah
           </Text>
+          
+          {/* Donate Here Button */}
+          <View 
+            className={`py-2 px-4 rounded-xl ${isDark ? 'bg-primary-accent/20' : 'bg-primary-accent/10'}`}
+            style={{ alignSelf: 'center' }}
+          >
+            <View className="flex-row items-center">
+              <Ionicons name="heart" size={16} color="#d4af37" />
+              <Text 
+                className={`ml-2 font-bold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}
+                style={{
+                  lineHeight: 20,
+                  includeFontPadding: false,
+                  textAlignVertical: 'center',
+                  fontSize: 14
+                }}
+              >
+                Donate Here →
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
 
         {/* Parental Control PIN */}
@@ -628,7 +743,7 @@ export default function SettingsScreen() {
               </View>
             </TouchableOpacity>
             <Text className={`text-xs mt-3 ${isDark ? 'text-yellow-500' : 'text-yellow-700'}`}>
-              🔒 Protected settings: Usage Lock, Reflection Frequency (Manual), Data Reset
+              🔒 Protected settings: Usage Lock, Device Screen Time, Reflection Frequency (Manual), Data Reset
             </Text>
           </View>
         </SettingSection>
@@ -705,11 +820,60 @@ export default function SettingsScreen() {
               <View className="flex-1" />
             </View>
             {usageLimit !== 'disabled' && (
-              <View className={`mt-4 p-3 rounded-xl ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                <Text className={`text-center font-semibold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
-                  {usageTracker.formatRemainingTime(remainingTime)}
-                </Text>
-              </View>
+              <>
+                <View className={`mt-4 p-3 rounded-xl ${isDark ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                  <Text className={`text-center font-semibold ${isDark ? 'text-primary-accent' : 'text-primary-dark'}`}>
+                    {usageTracker.formatRemainingTime(remainingTime)}
+                  </Text>
+                </View>
+
+                {/* Device Screen Time Toggle - Android Only */}
+                {Platform.OS === 'android' && (
+                  <View className={`mt-4 p-4 rounded-xl border ${isDark ? 'bg-gray-700/50 border-primary-accent/30' : 'bg-primary-accent/5 border-primary-accent/20'}`}>
+                    <View className="flex-row items-center justify-between mb-2">
+                      <View className="flex-1 mr-3">
+                        <View className="flex-row items-center mb-1">
+                          <Ionicons name="phone-portrait-outline" size={18} color="#d4af37" />
+                          <Text className={`ml-2 font-semibold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+                            Track Device Screen Time
+                          </Text>
+                        </View>
+                        <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                          Monitor total phone usage across all apps
+                        </Text>
+                      </View>
+                      <Switch
+                        value={deviceScreenTimeEnabled}
+                        onValueChange={handleDeviceScreenTimeToggle}
+                        trackColor={{ false: '#d1d5db', true: '#d4af37' }}
+                        thumbColor={deviceScreenTimeEnabled ? '#1a1a1a' : '#ffffff'}
+                      />
+                    </View>
+                    
+                    {deviceScreenTimeEnabled && !hasScreenTimePermission && (
+                      <TouchableOpacity
+                        onPress={async () => {
+                          await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                          await usageTracker.requestScreenTimePermission();
+                        }}
+                        className={`mt-2 py-2 px-3 rounded-lg ${isDark ? 'bg-yellow-600/20' : 'bg-yellow-50'}`}
+                      >
+                        <Text className={`text-xs text-center ${isDark ? 'text-yellow-400' : 'text-yellow-700'}`}>
+                          ⚠️ Permission required - Tap to grant
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+                    
+                    {deviceScreenTimeEnabled && hasScreenTimePermission && (
+                      <View className={`mt-2 py-2 px-3 rounded-lg ${isDark ? 'bg-green-600/20' : 'bg-green-50'}`}>
+                        <Text className={`text-xs text-center ${isDark ? 'text-green-400' : 'text-green-700'}`}>
+                          ✅ Tracking across all apps
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </>
             )}
           </View>
         </SettingSection>
@@ -760,8 +924,11 @@ export default function SettingsScreen() {
           {/* Volume Control */}
           {soundEnabled && (
             <View className={`px-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
-              <Text className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+              <Text className={`text-sm font-semibold mb-1 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
                 Volume Level
+              </Text>
+              <Text className={`text-xs mb-3 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                Tap to preview volume 🔊
               </Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TouchableOpacity
@@ -770,6 +937,8 @@ export default function SettingsScreen() {
                     soundManager.setVolume('low');
                     await AsyncStorage.setItem('soundVolume', 'low');
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // Play preview sound at new volume
+                    await soundManager.playSound('correct');
                     showToast({ message: 'Volume: Low', type: 'success', duration: 1500 });
                   }}
                   style={{ 
@@ -807,6 +976,8 @@ export default function SettingsScreen() {
                     soundManager.setVolume('medium');
                     await AsyncStorage.setItem('soundVolume', 'medium');
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // Play preview sound at new volume
+                    await soundManager.playSound('correct');
                     showToast({ message: 'Volume: Medium', type: 'success', duration: 1500 });
                   }}
                   style={{ 
@@ -844,6 +1015,8 @@ export default function SettingsScreen() {
                     soundManager.setVolume('high');
                     await AsyncStorage.setItem('soundVolume', 'high');
                     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    // Play preview sound at new volume
+                    await soundManager.playSound('correct');
                     showToast({ message: 'Volume: High', type: 'success', duration: 1500 });
                   }}
                   style={{ 
@@ -1081,6 +1254,9 @@ export default function SettingsScreen() {
                     fontWeight: '600', 
                     marginLeft: 8, 
                     fontSize: 16,
+                    lineHeight: 20,
+                    includeFontPadding: false,
+                    textAlignVertical: 'center'
                   }}
                   allowFontScaling={false}
                   ellipsizeMode="clip"

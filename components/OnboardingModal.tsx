@@ -13,10 +13,12 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
+import { usageTracker } from '../utils/usageTracker';
 
 const { width } = Dimensions.get('window');
 
@@ -30,7 +32,8 @@ type OnboardingStep =
   | 'welcome' 
   | 'feature1' 
   | 'feature2' 
-  | 'feature3' 
+  | 'feature3'
+  | 'device_screentime'
   | 'pin_intro'
   | 'pin_setup'
   | 'donation';
@@ -46,6 +49,8 @@ export default function OnboardingModal({
   const [confirmPin, setConfirmPin] = useState('');
   const [pinStep, setPinStep] = useState<'enter' | 'confirm'>('enter');
   const [error, setError] = useState('');
+  const [deviceScreenTimeEnabled, setDeviceScreenTimeEnabled] = useState(false);
+  const [permissionGranted, setPermissionGranted] = useState(false);
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -104,11 +109,12 @@ export default function OnboardingModal({
     const progressMap: Record<OnboardingStep, number> = {
       welcome: 0,
       feature1: 0.2,
-      feature2: 0.4,
-      feature3: 0.6,
-      pin_intro: 0.7,
-      pin_setup: 0.8,
-      donation: 0.9,
+      feature2: 0.35,
+      feature3: 0.5,
+      device_screentime: 0.65,
+      pin_intro: 0.75,
+      pin_setup: 0.85,
+      donation: 0.95,
     };
 
     Animated.timing(progressAnim, {
@@ -154,13 +160,18 @@ export default function OnboardingModal({
       welcome: 'feature1',
       feature1: 'feature2',
       feature2: 'feature3',
-      feature3: 'pin_intro',
+      feature3: Platform.OS === 'android' ? 'device_screentime' : 'pin_intro',
+      device_screentime: 'pin_intro',
       pin_intro: 'pin_setup',
       pin_setup: 'donation',
       donation: 'welcome', // Will call onComplete instead
     };
 
     if (step === 'donation') {
+      // Save device screen time setting
+      if (deviceScreenTimeEnabled && Platform.OS === 'android') {
+        await usageTracker.enableDeviceScreenTime();
+      }
       onComplete(pin || undefined);
     } else {
       setStep(stepFlow[step]);
@@ -173,6 +184,10 @@ export default function OnboardingModal({
       // Save PIN and skip to end
       setStep('donation');
     } else {
+      // Save device screen time setting before completing
+      if (deviceScreenTimeEnabled && Platform.OS === 'android') {
+        await usageTracker.enableDeviceScreenTime();
+      }
       onComplete(undefined);
     }
   };
@@ -249,15 +264,28 @@ export default function OnboardingModal({
               <Ionicons name="book" size={64} color="#d4af37" />
             </Animated.View>
             
-            <Text className={`text-4xl font-bold mb-4 text-center ${
-              isDark ? 'text-white' : 'text-primary-dark'
-            }`}>
+            <Text 
+              className={`text-4xl font-bold mb-4 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 48,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Welcome to{'\n'}Reflectify! 🌙
             </Text>
             
-            <Text className={`text-lg text-center mb-8 ${
-              isDark ? 'text-gray-400' : 'text-gray-600'
-            }`}>
+            <Text 
+              className={`text-lg text-center mb-8 ${
+                isDark ? 'text-gray-400' : 'text-gray-600'
+              }`}
+              style={{
+                lineHeight: 28,
+                includeFontPadding: false
+              }}
+            >
               Your daily companion for{'\n'}
               <Text className="text-primary-accent font-bold">Islamic reflection</Text> and{'\n'}
               <Text className="text-primary-accent font-bold">spiritual growth</Text>
@@ -289,9 +317,16 @@ export default function OnboardingModal({
               <Ionicons name="book-outline" size={48} color={isDark ? '#60a5fa' : '#3b82f6'} />
             </View>
             
-            <Text className={`text-3xl font-bold mb-4 text-center ${
-              isDark ? 'text-white' : 'text-primary-dark'
-            }`}>
+            <Text 
+              className={`text-3xl font-bold mb-4 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 40,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Authentic Hadiths 📖
             </Text>
             
@@ -340,9 +375,16 @@ export default function OnboardingModal({
               <Ionicons name="medal-outline" size={48} color={isDark ? '#a78bfa' : '#8b5cf6'} />
             </View>
             
-            <Text className={`text-3xl font-bold mb-4 text-center ${
-              isDark ? 'text-white' : 'text-primary-dark'
-            }`}>
+            <Text 
+              className={`text-3xl font-bold mb-4 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 40,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Gamified Learning 🎯
             </Text>
             
@@ -413,9 +455,16 @@ export default function OnboardingModal({
               <Ionicons name="timer-outline" size={48} color={isDark ? '#f87171' : '#ef4444'} />
             </View>
             
-            <Text className={`text-3xl font-bold mb-4 text-center ${
-              isDark ? 'text-white' : 'text-primary-dark'
-            }`}>
+            <Text 
+              className={`text-3xl font-bold mb-4 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 40,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Screen Time Control ⏰
             </Text>
             
@@ -480,6 +529,181 @@ export default function OnboardingModal({
           </Animated.View>
         );
 
+      case 'device_screentime':
+        return (
+          <Animated.View 
+            style={{ opacity: fadeAnim, transform: [{ translateY: slideAnim }] }}
+            className="items-center"
+          >
+            <View className={`w-24 h-24 rounded-full items-center justify-center mb-6 ${
+              isDark ? 'bg-green-500/20' : 'bg-green-50'
+            }`}>
+              <Ionicons name="phone-portrait-outline" size={48} color={isDark ? '#34d399' : '#10b981'} />
+            </View>
+            
+            <Text 
+              className={`text-3xl font-bold mb-4 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 40,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
+              Track Device Screen Time 📱
+            </Text>
+            
+            <Text className={`text-base text-center mb-6 px-4 ${
+              isDark ? 'text-gray-400' : 'text-gray-600'
+            }`}>
+              <Text className="font-bold text-primary-accent">Android exclusive!</Text> Track your{' '}
+              <Text className="font-bold">entire phone usage</Text> across ALL apps, not just Reflectify.
+            </Text>
+
+            <View className={`w-full p-4 rounded-xl mb-4 ${
+              isDark ? 'bg-gray-800' : 'bg-gray-100'
+            }`}>
+              <View className="flex-row items-center mb-3">
+                <View className={`w-10 h-10 rounded-full items-center justify-center ${
+                  isDark ? 'bg-blue-500/20' : 'bg-blue-50'
+                }`}>
+                  <Ionicons name="apps" size={20} color={isDark ? '#60a5fa' : '#3b82f6'} />
+                </View>
+                <View className="flex-1 ml-3">
+                  <Text className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    All Apps Tracked
+                  </Text>
+                  <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Instagram, WhatsApp, TikTok, games, etc.
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center mb-3">
+                <View className={`w-10 h-10 rounded-full items-center justify-center ${
+                  isDark ? 'bg-purple-500/20' : 'bg-purple-50'
+                }`}>
+                  <Ionicons name="time" size={20} color={isDark ? '#a78bfa' : '#8b5cf6'} />
+                </View>
+                <View className="flex-1 ml-3">
+                  <Text className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Works in Background
+                  </Text>
+                  <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Tracks even when Reflectify is closed
+                  </Text>
+                </View>
+              </View>
+
+              <View className="flex-row items-center">
+                <View className={`w-10 h-10 rounded-full items-center justify-center ${
+                  isDark ? 'bg-orange-500/20' : 'bg-orange-50'
+                }`}>
+                  <Ionicons name="alert-circle" size={20} color={isDark ? '#fb923c' : '#f97316'} />
+                </View>
+                <View className="flex-1 ml-3">
+                  <Text className={`font-semibold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                    Smart Reminders
+                  </Text>
+                  <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                    Get reflection prompts every 1-2 hours
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Enable Toggle */}
+            <TouchableOpacity
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                if (!deviceScreenTimeEnabled) {
+                  setDeviceScreenTimeEnabled(true);
+                  
+                  // Request permission
+                  const hasPermission = await usageTracker.hasScreenTimePermission();
+                  if (!hasPermission) {
+                    await usageTracker.requestScreenTimePermission();
+                    
+                    // Check permission after a delay
+                    setTimeout(async () => {
+                      const granted = await usageTracker.hasScreenTimePermission();
+                      setPermissionGranted(granted);
+                    }, 1500);
+                  } else {
+                    setPermissionGranted(true);
+                  }
+                } else {
+                  setDeviceScreenTimeEnabled(false);
+                  setPermissionGranted(false);
+                }
+              }}
+              className={`w-full p-4 rounded-xl border-2 mb-4 ${
+                deviceScreenTimeEnabled
+                  ? isDark
+                    ? 'bg-primary-accent/10 border-primary-accent'
+                    : 'bg-primary-accent/5 border-primary-accent'
+                  : isDark
+                  ? 'bg-gray-800 border-gray-700'
+                  : 'bg-gray-100 border-gray-300'
+              }`}
+              activeOpacity={0.7}
+            >
+              <View className="flex-row items-center justify-between">
+                <View className="flex-row items-center flex-1">
+                  <View className={`w-12 h-12 rounded-full items-center justify-center ${
+                    deviceScreenTimeEnabled
+                      ? 'bg-primary-accent'
+                      : isDark
+                      ? 'bg-gray-700'
+                      : 'bg-gray-200'
+                  }`}>
+                    <Ionicons 
+                      name={deviceScreenTimeEnabled ? 'checkmark' : 'add'} 
+                      size={24} 
+                      color={deviceScreenTimeEnabled ? '#1a1a1a' : isDark ? '#9ca3af' : '#6b7280'} 
+                    />
+                  </View>
+                  <View className="flex-1 ml-3">
+                    <Text className={`font-bold ${
+                      deviceScreenTimeEnabled
+                        ? 'text-primary-accent'
+                        : isDark
+                        ? 'text-white'
+                        : 'text-gray-900'
+                    }`}>
+                      {deviceScreenTimeEnabled ? 'Enabled! ✓' : 'Enable Device Tracking'}
+                    </Text>
+                    <Text className={`text-xs mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                      {deviceScreenTimeEnabled
+                        ? permissionGranted
+                          ? 'Permission granted - Ready to use!'
+                          : 'Grant permission in system settings'
+                        : 'Tap to enable and grant permission'}
+                    </Text>
+                  </View>
+                </View>
+                <Ionicons 
+                  name="chevron-forward" 
+                  size={24} 
+                  color={deviceScreenTimeEnabled ? '#d4af37' : isDark ? '#4b5563' : '#9ca3af'} 
+                />
+              </View>
+            </TouchableOpacity>
+
+            <View className={`p-4 rounded-xl ${
+              isDark ? 'bg-blue-900/20' : 'bg-blue-50'
+            }`}>
+              <Text className={`text-xs text-center ${
+                isDark ? 'text-blue-300' : 'text-blue-700'
+              }`}>
+                💡 <Text className="font-semibold">Example:</Text> Use phone for 4 hours with 1-hour limit?{'\n'}
+                You'll complete 4 reflections throughout the day! 🕌
+              </Text>
+            </View>
+          </Animated.View>
+        );
+
       case 'pin_intro':
         return (
           <Animated.View 
@@ -492,9 +716,16 @@ export default function OnboardingModal({
               <Ionicons name="lock-closed" size={48} color="#d4af37" />
             </View>
             
-            <Text className={`text-3xl font-bold mb-4 text-center ${
-              isDark ? 'text-white' : 'text-primary-dark'
-            }`}>
+            <Text 
+              className={`text-3xl font-bold mb-4 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 40,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Set Parental PIN 🔒
             </Text>
             
@@ -678,9 +909,16 @@ export default function OnboardingModal({
               <Ionicons name="heart" size={64} color="#d4af37" />
             </Animated.View>
             
-            <Text className={`text-3xl font-bold mb-4 mt-6 text-center ${
-              isDark ? 'text-white' : 'text-primary-dark'
-            }`}>
+            <Text 
+              className={`text-3xl font-bold mb-4 mt-6 text-center ${
+                isDark ? 'text-white' : 'text-primary-dark'
+              }`}
+              style={{
+                lineHeight: 40,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               Support Reflectify 💚
             </Text>
             
@@ -803,19 +1041,39 @@ export default function OnboardingModal({
           {/* Navigation */}
           {step !== 'pin_setup' && step !== 'donation' && (
             <View className="flex-row justify-between p-6 pt-0">
-              <TouchableOpacity onPress={handleSkip} className="py-3 px-6">
-                <Text className={`font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                  Skip
-                </Text>
-              </TouchableOpacity>
+               <TouchableOpacity onPress={handleSkip} className="py-3 px-6">
+                 <Text 
+                   className={`font-semibold ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                   style={{
+                     lineHeight: 20,
+                     includeFontPadding: false,
+                     textAlignVertical: 'center'
+                   }}
+                 >
+                   Skip
+                 </Text>
+               </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={handleNext}
                 className="bg-primary-accent rounded-2xl py-3 px-8 shadow-md"
                 activeOpacity={0.8}
               >
-                <Text className="text-primary-dark font-bold text-lg">
-                  {step === 'pin_intro' ? "Let's Set It!" : 'Next'}
+                <Text 
+                  className="text-primary-dark font-bold text-lg"
+                  style={{
+                    lineHeight: 24,
+                    includeFontPadding: false,
+                    textAlignVertical: 'center'
+                  }}
+                >
+                  {step === 'device_screentime' 
+                    ? deviceScreenTimeEnabled 
+                      ? 'Continue ✓' 
+                      : 'Skip for Now'
+                    : step === 'pin_intro' 
+                    ? "Let's Set It!" 
+                    : 'Next'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -825,7 +1083,14 @@ export default function OnboardingModal({
           {step === 'pin_setup' && (
             <View className="p-6 pt-0">
               <TouchableOpacity onPress={handleSkip} className="py-3">
-                <Text className={`text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                <Text 
+                  className={`text-center ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                  style={{
+                    lineHeight: 20,
+                    includeFontPadding: false,
+                    textAlignVertical: 'center'
+                  }}
+                >
                   Skip (Not Recommended)
                 </Text>
               </TouchableOpacity>

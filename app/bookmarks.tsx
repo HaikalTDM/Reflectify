@@ -228,7 +228,14 @@ export default function BookmarksScreen() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         <View className="flex-1 justify-center items-center">
           <Ionicons name="bookmark-outline" size={64} color="#d4af37" />
-          <Text className={`mt-4 text-lg ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+          <Text 
+            className={`mt-4 text-lg ${isDark ? 'text-white' : 'text-primary-dark'}`}
+            style={{
+              lineHeight: 24,
+              includeFontPadding: false,
+              textAlignVertical: 'center'
+            }}
+          >
             Loading bookmarks...
           </Text>
         </View>
@@ -255,10 +262,23 @@ export default function BookmarksScreen() {
           <Ionicons name="arrow-back" size={24} color={isDark ? '#fff' : '#1a1a1a'} />
         </TouchableOpacity>
         <View className="flex-1">
-          <Text className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+          <Text 
+            className={`text-2xl font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}
+            style={{
+              lineHeight: 32,
+              includeFontPadding: false,
+              textAlignVertical: 'center'
+            }}
+          >
             Bookmarks
           </Text>
-          <Text className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+          <Text 
+            className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+            style={{
+              lineHeight: 20,
+              includeFontPadding: false
+            }}
+          >
             {bookmarkedHadiths.length} saved {bookmarkedHadiths.length === 1 ? 'hadith' : 'hadiths'}
           </Text>
         </View>
@@ -273,10 +293,23 @@ export default function BookmarksScreen() {
         {bookmarkedHadiths.length === 0 ? (
           <View className="flex-1 justify-center items-center py-20">
             <Ionicons name="bookmark-outline" size={80} color={isDark ? '#374151' : '#e5e7eb'} />
-            <Text className={`text-xl font-semibold mt-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            <Text 
+              className={`text-xl font-semibold mt-6 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}
+              style={{
+                lineHeight: 28,
+                includeFontPadding: false,
+                textAlignVertical: 'center'
+              }}
+            >
               No bookmarks yet
             </Text>
-            <Text className={`text-sm mt-2 text-center px-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+            <Text 
+              className={`text-sm mt-2 text-center px-8 ${isDark ? 'text-gray-500' : 'text-gray-400'}`}
+              style={{
+                lineHeight: 20,
+                includeFontPadding: false
+              }}
+            >
               Bookmark hadiths during reflection to save them here for easy access
             </Text>
             <TouchableOpacity
@@ -286,7 +319,14 @@ export default function BookmarksScreen() {
               }}
               className="mt-8 bg-primary-accent px-8 py-4 rounded-2xl"
             >
-              <Text className="text-primary-dark font-bold text-base">
+              <Text 
+                className="text-primary-dark font-bold text-base"
+                style={{
+                  lineHeight: 22,
+                  includeFontPadding: false,
+                  textAlignVertical: 'center'
+                }}
+              >
                 Start Reflecting
               </Text>
             </TouchableOpacity>
@@ -313,31 +353,57 @@ export default function BookmarksScreen() {
                   <View className="flex-1 mr-3">
                     <View className="flex-row items-center mb-2">
                       <Ionicons name="bookmark" size={18} color="#d4af37" />
-                      <Text className={`ml-2 text-base font-semibold ${
-                        isDark ? 'text-white' : 'text-primary-dark'
-                      }`}>
+                      <Text 
+                        className={`ml-2 text-base font-semibold ${
+                          isDark ? 'text-white' : 'text-primary-dark'
+                        }`}
+                        style={{ 
+                          flex: 1,
+                          lineHeight: 22,
+                          includeFontPadding: false,
+                          textAlignVertical: 'center'
+                        }}
+                      >
                         {hadith}
                       </Text>
                     </View>
                     
                     {/* Theme Badge */}
                     {hadithPreviews[hadith]?.theme && (
-                      <View className="mb-2">
-                        <View className="self-start px-3 py-1 bg-primary-accent/20 rounded-full">
-                          <Text className="text-primary-accent text-xs font-semibold">
-                            {hadithPreviews[hadith].theme}
-                          </Text>
-                        </View>
+                      <View className="mb-2 flex-shrink">
+                        <Text 
+                          className="text-primary-accent text-xs font-semibold px-3 py-1.5 bg-primary-accent/20 rounded-lg"
+                          style={{
+                            lineHeight: 16,
+                            includeFontPadding: false,
+                            textAlignVertical: 'center'
+                          }}
+                        >
+                          {hadithPreviews[hadith].theme}
+                        </Text>
                       </View>
                     )}
                     
                     {/* Preview Text */}
-                    <Text className={`text-sm leading-6 ${isDark ? 'text-gray-300' : 'text-gray-700'}`} numberOfLines={2}>
+                    <Text 
+                      className={`text-sm ${isDark ? 'text-gray-300' : 'text-gray-700'}`} 
+                      numberOfLines={2}
+                      style={{
+                        lineHeight: 20,
+                        includeFontPadding: false
+                      }}
+                    >
                       {hadithPreviews[hadith]?.text || (hadith.includes('Bukhari') 
                         ? 'Narrated from the authentic collection of Imam Bukhari...'
                         : 'Narrated from the authentic collection of Imam Muslim...')}
                     </Text>
-                    <Text className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}>
+                    <Text 
+                      className={`text-xs mt-2 ${isDark ? 'text-gray-500' : 'text-gray-500'}`}
+                      style={{
+                        lineHeight: 16,
+                        includeFontPadding: false
+                      }}
+                    >
                       Tap below to read full hadith with translations
                     </Text>
                   </View>
@@ -354,7 +420,14 @@ export default function BookmarksScreen() {
                   disabled={loadingHadith}
                   className="mt-4 py-3 bg-primary-accent/20 rounded-xl"
                 >
-                  <Text className="text-primary-accent text-center font-semibold">
+                  <Text 
+                    className="text-primary-accent text-center font-semibold"
+                    style={{
+                      lineHeight: 20,
+                      includeFontPadding: false,
+                      textAlignVertical: 'center'
+                    }}
+                  >
                     {loadingHadith ? 'Loading...' : 'View Hadith'}
                   </Text>
                 </TouchableOpacity>
@@ -371,11 +444,11 @@ export default function BookmarksScreen() {
         animationType="none"
         onRequestClose={closeModal}
       >
-        <View className="flex-1">
-          {/* Backdrop */}
+        <View className="flex-1" style={{ backgroundColor: 'rgba(0,0,0,0.6)' }}>
+          {/* Backdrop - only at the top part */}
           <Animated.View
             style={{ opacity: modalBackdropAnim }}
-            className="absolute inset-0 bg-black"
+            className="flex-1"
           >
             <TouchableOpacity
               activeOpacity={1}
@@ -389,16 +462,30 @@ export default function BookmarksScreen() {
             style={{
               transform: [{ translateY: modalSlideAnim }],
             }}
-            className="absolute bottom-0 left-0 right-0"
           >
-            <View className={`${isDark ? 'bg-primary-dark' : 'bg-white'} rounded-t-3xl shadow-2xl`}>
+            <View 
+              className={`${isDark ? 'bg-primary-dark' : 'bg-white'} rounded-t-3xl shadow-2xl`}
+            >
               {/* Header */}
               <View className="flex-row items-center justify-between px-6 pt-6 pb-4 border-b border-gray-700/30">
-                <View className="flex-1">
-                  <Text className={`text-xl font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+                <View className="flex-1 mr-3">
+                  <Text 
+                    className={`text-xl font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}
+                    style={{
+                      lineHeight: 28,
+                      includeFontPadding: false,
+                      textAlignVertical: 'center'
+                    }}
+                  >
                     {selectedHadith?.reference}
                   </Text>
-                  <Text className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  <Text 
+                    className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}
+                    style={{
+                      lineHeight: 20,
+                      includeFontPadding: false
+                    }}
+                  >
                     Narrator: {selectedHadith?.narrator}
                   </Text>
                 </View>
@@ -413,15 +500,25 @@ export default function BookmarksScreen() {
               {/* Content */}
               <ScrollView 
                 className="px-6 py-6"
-                style={{ maxHeight: SCREEN_HEIGHT * 0.7 }}
-                showsVerticalScrollIndicator={false}
+                style={{ maxHeight: SCREEN_HEIGHT * 0.65 }}
+                showsVerticalScrollIndicator={true}
+                nestedScrollEnabled={true}
+                scrollEnabled={true}
+                contentContainerStyle={{ paddingBottom: 20 }}
               >
                 {/* Arabic Text */}
                 {selectedHadith?.text_ar && (
                   <View className="mb-6">
-                    <Text className={`text-2xl text-right leading-10 ${
-                      isDark ? 'text-primary-accent' : 'text-primary-accent'
-                    }`} style={{ fontFamily: 'System' }}>
+                    <Text 
+                      className={`text-2xl text-right ${
+                        isDark ? 'text-primary-accent' : 'text-primary-accent'
+                      }`} 
+                      style={{ 
+                        fontFamily: 'System',
+                        lineHeight: 40,
+                        includeFontPadding: false
+                      }}
+                    >
                       {selectedHadith.text_ar}
                     </Text>
                   </View>
@@ -431,14 +528,27 @@ export default function BookmarksScreen() {
                 <View className={`p-4 rounded-2xl mb-4 ${
                   isDark ? 'bg-gray-800/50' : 'bg-gray-50'
                 }`}>
-                  <Text className={`text-xs font-semibold mb-2 ${
-                    isDark ? 'text-gray-400' : 'text-gray-600'
-                  }`}>
+                  <Text 
+                    className={`text-xs font-semibold mb-2 ${
+                      isDark ? 'text-gray-400' : 'text-gray-600'
+                    }`}
+                    style={{
+                      lineHeight: 16,
+                      includeFontPadding: false,
+                      textAlignVertical: 'center'
+                    }}
+                  >
                     ENGLISH
                   </Text>
-                  <Text className={`text-base leading-7 ${
-                    isDark ? 'text-white' : 'text-primary-dark'
-                  }`}>
+                  <Text 
+                    className={`text-base ${
+                      isDark ? 'text-white' : 'text-primary-dark'
+                    }`}
+                    style={{
+                      lineHeight: 24,
+                      includeFontPadding: false
+                    }}
+                  >
                     {selectedHadith?.text_en}
                   </Text>
                 </View>
@@ -448,14 +558,27 @@ export default function BookmarksScreen() {
                   <View className={`p-4 rounded-2xl ${
                     isDark ? 'bg-gray-800/50' : 'bg-gray-50'
                   }`}>
-                    <Text className={`text-xs font-semibold mb-2 ${
-                      isDark ? 'text-gray-400' : 'text-gray-600'
-                    }`}>
+                    <Text 
+                      className={`text-xs font-semibold mb-2 ${
+                        isDark ? 'text-gray-400' : 'text-gray-600'
+                      }`}
+                      style={{
+                        lineHeight: 16,
+                        includeFontPadding: false,
+                        textAlignVertical: 'center'
+                      }}
+                    >
                       MALAY
                     </Text>
-                    <Text className={`text-base leading-7 ${
-                      isDark ? 'text-white' : 'text-primary-dark'
-                    }`}>
+                    <Text 
+                      className={`text-base ${
+                        isDark ? 'text-white' : 'text-primary-dark'
+                      }`}
+                      style={{
+                        lineHeight: 24,
+                        includeFontPadding: false
+                      }}
+                    >
                       {selectedHadith.text_ms}
                     </Text>
                   </View>
@@ -463,12 +586,17 @@ export default function BookmarksScreen() {
 
                 {/* Theme Badge */}
                 {selectedHadith?.theme && (
-                  <View className="mt-6 flex-row items-center justify-center">
-                    <View className="px-4 py-2 bg-primary-accent/20 rounded-full">
-                      <Text className="text-primary-accent text-sm font-semibold">
-                        {selectedHadith.theme}
-                      </Text>
-                    </View>
+                  <View className="mt-6 items-center px-4">
+                    <Text 
+                      className="text-primary-accent text-sm font-semibold px-4 py-2 bg-primary-accent/20 rounded-lg text-center"
+                      style={{
+                        lineHeight: 20,
+                        includeFontPadding: false,
+                        textAlignVertical: 'center'
+                      }}
+                    >
+                      {selectedHadith.theme}
+                    </Text>
                   </View>
                 )}
               </ScrollView>
@@ -481,7 +609,14 @@ export default function BookmarksScreen() {
                   onPress={closeModal}
                   className="bg-primary-accent py-4 rounded-2xl"
                 >
-                  <Text className="text-primary-dark text-center font-bold text-base">
+                  <Text 
+                    className="text-primary-dark text-center font-bold text-base"
+                    style={{
+                      lineHeight: 22,
+                      includeFontPadding: false,
+                      textAlignVertical: 'center'
+                    }}
+                  >
                     Close
                   </Text>
                 </TouchableOpacity>
