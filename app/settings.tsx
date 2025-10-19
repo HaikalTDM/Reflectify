@@ -479,6 +479,26 @@ export default function SettingsScreen() {
           />
         </SettingSection>
 
+        {/* Admin Panel Button */}
+        <TouchableOpacity
+          onPress={async () => {
+            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+            router.push('/admin');
+          }}
+          activeOpacity={0.7}
+          className={`mx-6 my-6 p-5 rounded-2xl ${isDark ? 'bg-red-900/20 border border-red-500/30' : 'bg-red-50 border border-red-200'}`}
+        >
+          <View className="flex-row items-center justify-center">
+            <Ionicons name="shield-checkmark-outline" size={24} color={isDark ? '#fca5a5' : '#dc2626'} />
+            <Text className={`ml-3 text-lg font-bold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+              Admin Panel - Review Questions
+            </Text>
+          </View>
+          <Text className={`text-center mt-2 text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+            Report and review incorrect quiz answers
+          </Text>
+        </TouchableOpacity>
+
         <View className="h-8" />
       </Animated.ScrollView>
     </View>

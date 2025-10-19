@@ -67,8 +67,11 @@ export const QUESTION_CONFIGS: Record<QuestionGenerationMode, QuestionConfig> = 
  * - 1K-10K users: 'hybrid' (scales well, ~$2-5/month)
  * - 10K-100K users: 'hybrid' or 'free' (~$5-20/month or $0)
  * - 100K+ users: 'free' + pre-generation ($0 ongoing)
+ * 
+ * CURRENT: FREE MODE - Using 200 pre-generated questions only
+ * DeepSeek AI is DISABLED to save costs while testing
  */
-export const CURRENT_MODE: QuestionGenerationMode = 'hybrid';
+export const CURRENT_MODE: QuestionGenerationMode = 'free';
 
 /**
  * Get current configuration

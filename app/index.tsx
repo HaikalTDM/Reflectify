@@ -247,6 +247,68 @@ export default function HomeScreen() {
     router.push('/settings');
   };
 
+  const handleStreakPress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const encouragement = stats.currentStreak === 0 
+      ? "Start your reflection journey today! 🌱"
+      : stats.currentStreak === 1
+      ? "Great start! Keep it going tomorrow! 💪"
+      : stats.currentStreak < 7
+      ? "Amazing! You're building a habit! 🔥"
+      : stats.currentStreak < 30
+      ? "Incredible dedication! Keep it up! 🌟"
+      : "Mashallah! You're an inspiration! 👑";
+
+    showAlert({
+      title: `🔥 ${stats.currentStreak} Day Streak!`,
+      message: `Current Streak: ${stats.currentStreak} days\nLongest Streak: ${stats.longestStreak} days\n\n${encouragement}`,
+      buttons: [{ text: 'Keep Going!', style: 'primary' }],
+    });
+  };
+
+  const handleScorePress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const avgScore = stats.totalReflections > 0 
+      ? Math.round(stats.totalScore / stats.totalReflections) 
+      : 0;
+    
+    const rank = stats.totalScore >= 1000 
+      ? "🏆 Master Scholar"
+      : stats.totalScore >= 500
+      ? "📚 Advanced Learner"
+      : stats.totalScore >= 100
+      ? "⭐ Growing Student"
+      : "🌱 Beginner";
+
+    showAlert({
+      title: `⭐ ${stats.totalScore} Points!`,
+      message: `Total Score: ${stats.totalScore} points\nReflections: ${stats.totalReflections}\nAverage: ${avgScore} pts/reflection\n\nYour Rank: ${rank}`,
+      buttons: [
+        { text: 'Amazing!', style: 'primary' },
+      ],
+    });
+  };
+
+  const handleReflectionsPress = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    const message = stats.totalReflections === 0
+      ? "Start your first reflection today! Tap the button below to begin your journey of growth and learning. 🌟"
+      : stats.bookmarkedHadiths.length > 0
+      ? `You've completed ${stats.totalReflections} reflections!\n\nBookmarked Hadiths: ${stats.bookmarkedHadiths.length}\n\nKeep reflecting on the wisdom of our beloved Prophet ﷺ. May Allah accept your efforts! 🤲`
+      : `You've completed ${stats.totalReflections} reflections!\n\nBookmark hadiths you love by tapping the bookmark icon during reflection. 📖\n\nMay Allah accept your efforts! 🤲`;
+
+    showAlert({
+      title: `📿 ${stats.totalReflections} Reflections`,
+      message: message,
+      buttons: [
+        { text: 'Alhamdulillah', style: 'primary' },
+      ],
+    });
+  };
+
   return (
     <SafeAreaView className={`flex-1 ${isDark ? 'bg-primary-dark' : 'bg-white'}`}>
       <StatusBar style={isDark ? 'light' : 'dark'} />
@@ -297,7 +359,7 @@ export default function HomeScreen() {
             {/* Streak Card */}
             <TouchableOpacity 
               activeOpacity={0.9}
-              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              onPress={handleStreakPress}
               className={`flex-1 p-4 rounded-2xl ${isDark ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-orange-50 border border-orange-200'}`}
             >
               <View className="items-center">
@@ -316,7 +378,7 @@ export default function HomeScreen() {
             {/* Score Card */}
             <TouchableOpacity 
               activeOpacity={0.9}
-              onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+              onPress={handleScorePress}
               className={`flex-1 p-4 rounded-2xl ${isDark ? 'bg-yellow-900/20 border border-yellow-500/30' : 'bg-yellow-50 border border-yellow-200'}`}
             >
               <View className="items-center">
@@ -336,7 +398,7 @@ export default function HomeScreen() {
           {/* Reflections Card */}
           <TouchableOpacity 
             activeOpacity={0.9}
-            onPress={() => Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)}
+            onPress={handleReflectionsPress}
             className={`p-6 rounded-2xl ${isDark ? 'bg-primary-accent/10 border border-primary-accent/30' : 'bg-primary-accent/10 border border-primary-accent/30'}`}
           >
             <View className="items-center">
