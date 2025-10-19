@@ -7,6 +7,7 @@ import {
   Switch,
   Animated,
   Easing,
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -17,6 +18,10 @@ import { scheduleReflectionNotification, cancelAllNotifications } from '../utils
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { usageTracker, UsageLimit } from '../utils/usageTracker';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../contexts/AuthContext';
+import { enableSync, disableSync, syncLocalToCloud, syncCloudToLocal } from '../utils/userStatsSupabase';
+import { soundManager } from '../utils/soundManager';
 
 type Frequency = 'manual' | 'daily' | 'weekly' | 'random';
 type Language = 'en' | 'ar' | 'ms' | 'en+ar' | 'en+ms' | 'ar+ms' | 'all';
@@ -25,11 +30,16 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { isDark, setTheme } = useTheme();
   const { showToast, showAlert } = useNotification();
+  const { user, isAnonymous, signOut, isAdmin } = useAuth();
   const [frequency, setFrequency] = useState<Frequency>('manual');
   const [language, setLanguage] = useState<Language>('en');
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
   const [usageLimit, setUsageLimit] = useState<UsageLimit>('disabled');
   const [remainingTime, setRemainingTime] = useState<number>(0);
+  const [syncEnabled, setSyncEnabled] = useState(false);
+  const [syncing, setSyncing] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+  const [soundVolume, setSoundVolume] = useState<'low' | 'medium' | 'high'>('high');
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -106,6 +116,31 @@ export default function SettingsScreen() {
 
       const remaining = await usageTracker.getRemainingTime();
       setRemainingTime(remaining);
+
+      // Load sound setting (default to enabled)
+      const sound = await AsyncStorage.getItem('soundEnabled');
+      const isSoundEnabled = sound === null ? true : sound === 'true';
+      setSoundEnabled(isSoundEnabled);
+      soundManager.setMuted(!isSoundEnabled);
+
+      // Load volume setting (default to high)
+      const volume = await AsyncStorage.getItem('soundVolume') as 'low' | 'medium' | 'high' | null;
+      const volumeLevel = volume || 'high';
+      setSoundVolume(volumeLevel);
+      soundManager.setVolume(volumeLevel);
+
+      // Check if cloud sync is enabled (default to true for signed-in users)
+      if (user && !isAnonymous) {
+        const syncSetting = await AsyncStorage.getItem('cloudSyncEnabled');
+        if (syncSetting === null) {
+          // First time - enable sync by default
+          setSyncEnabled(true);
+          await AsyncStorage.setItem('cloudSyncEnabled', 'true');
+          await enableSync();
+        } else {
+          setSyncEnabled(syncSetting === 'true');
+        }
+      }
     } catch (error) {
       console.error('Error loading settings:', error);
     }
@@ -220,14 +255,67 @@ export default function SettingsScreen() {
           text: 'Reset',
           style: 'destructive',
           onPress: async () => {
-            await AsyncStorage.setItem('reflectionCount', '0');
-            await usageTracker.resetUsageTime();
-            await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-            showToast({
-              message: 'All data has been reset successfully',
-              type: 'success',
-              duration: 3000,
-            });
+            try {
+              // Clear all local storage data
+              await AsyncStorage.multiRemove([
+                'reflectionCount',
+                'userStats',
+                'bookmarkedHadiths',
+                'lastReflectionDate',
+              ]);
+              
+              // Reset usage time
+              await usageTracker.resetUsageTime();
+              
+              // If user is signed in (not anonymous), also reset cloud data
+              if (user && !isAnonymous) {
+                console.log('Resetting cloud data for user:', user.id);
+                
+                // Reset user stats in Supabase
+                const { error: statsError } = await supabase
+                  .from('user_stats')
+                  .update({
+                    current_streak: 0,
+                    longest_streak: 0,
+                    total_score: 0,
+                    total_reflections: 0,
+                    last_reflection_date: null,
+                  })
+                  .eq('user_id', user.id);
+                
+                if (statsError) {
+                  console.error('Error resetting stats:', statsError);
+                }
+                
+                // Delete all bookmarks in Supabase
+                const { error: bookmarksError } = await supabase
+                  .from('bookmarks')
+                  .delete()
+                  .eq('user_id', user.id);
+                
+                if (bookmarksError) {
+                  console.error('Error deleting bookmarks:', bookmarksError);
+                }
+              }
+              
+              await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+              
+              showToast({
+                message: 'All data has been reset successfully',
+                type: 'success',
+                duration: 3000,
+              });
+              
+              // Navigate to homepage to trigger data reload via useFocusEffect
+              router.replace('/');
+            } catch (error) {
+              console.error('Error resetting data:', error);
+              showToast({
+                message: 'Failed to reset data',
+                type: 'error',
+                duration: 3000,
+              });
+            }
           },
         },
       ],
@@ -482,6 +570,154 @@ export default function SettingsScreen() {
           />
         </SettingSection>
 
+        {/* Sound Effects */}
+        <SettingSection title="SOUND">
+          <SettingItem
+            icon="volume-high-outline"
+            title="Sound Effects"
+            subtitle={soundEnabled ? 'Enabled' : 'Disabled'}
+            rightComponent={
+              <Switch
+                value={soundEnabled}
+                onValueChange={async (value) => {
+                  setSoundEnabled(value);
+                  soundManager.setMuted(!value);
+                  await AsyncStorage.setItem('soundEnabled', value.toString());
+                  await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                  showToast({
+                    message: value ? 'Sound effects enabled' : 'Sound effects disabled',
+                    type: 'success',
+                    duration: 2000,
+                  });
+                }}
+                trackColor={{ false: '#d1d5db', true: '#d4af37' }}
+                thumbColor={soundEnabled ? '#1a1a1a' : '#ffffff'}
+              />
+            }
+          />
+
+          {/* Volume Control */}
+          {soundEnabled && (
+            <View className={`px-4 py-4 border-t ${isDark ? 'border-gray-700' : 'border-gray-200'}`}>
+              <Text className={`text-sm font-semibold mb-3 ${isDark ? 'text-gray-300' : 'text-gray-700'}`}>
+                Volume Level
+              </Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TouchableOpacity
+                  onPress={async () => {
+                    setSoundVolume('low');
+                    soundManager.setVolume('low');
+                    await AsyncStorage.setItem('soundVolume', 'low');
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    showToast({ message: 'Volume: Low', type: 'success', duration: 1500 });
+                  }}
+                  style={{ 
+                    flex: 1, 
+                    paddingVertical: 10,
+                    paddingHorizontal: 4,
+                    borderRadius: 12, 
+                    alignItems: 'center',
+                    backgroundColor: soundVolume === 'low' ? '#d4af37' : (isDark ? '#1f2937' : '#f3f4f6'),
+                    borderWidth: 1,
+                    borderColor: soundVolume === 'low' ? '#d4af37' : (isDark ? '#374151' : '#d1d5db'),
+                  }}
+                >
+                  <Ionicons 
+                    name="volume-low" 
+                    size={18} 
+                    color={soundVolume === 'low' ? '#1a1a1a' : '#d4af37'} 
+                  />
+                  <Text 
+                    style={{ 
+                      fontSize: 9, 
+                      marginTop: 3, 
+                      fontWeight: '600',
+                      color: soundVolume === 'low' ? '#1a1a1a' : (isDark ? '#d1d5db' : '#374151'),
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    Low
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    setSoundVolume('medium');
+                    soundManager.setVolume('medium');
+                    await AsyncStorage.setItem('soundVolume', 'medium');
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    showToast({ message: 'Volume: Medium', type: 'success', duration: 1500 });
+                  }}
+                  style={{ 
+                    flex: 1, 
+                    paddingVertical: 10,
+                    paddingHorizontal: 4,
+                    borderRadius: 12, 
+                    alignItems: 'center',
+                    backgroundColor: soundVolume === 'medium' ? '#d4af37' : (isDark ? '#1f2937' : '#f3f4f6'),
+                    borderWidth: 1,
+                    borderColor: soundVolume === 'medium' ? '#d4af37' : (isDark ? '#374151' : '#d1d5db'),
+                  }}
+                >
+                  <Ionicons 
+                    name="volume-medium" 
+                    size={18} 
+                    color={soundVolume === 'medium' ? '#1a1a1a' : '#d4af37'} 
+                  />
+                  <Text 
+                    style={{ 
+                      fontSize: 9, 
+                      marginTop: 3, 
+                      fontWeight: '600',
+                      color: soundVolume === 'medium' ? '#1a1a1a' : (isDark ? '#d1d5db' : '#374151'),
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    Medium
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={async () => {
+                    setSoundVolume('high');
+                    soundManager.setVolume('high');
+                    await AsyncStorage.setItem('soundVolume', 'high');
+                    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                    showToast({ message: 'Volume: High', type: 'success', duration: 1500 });
+                  }}
+                  style={{ 
+                    flex: 1, 
+                    paddingVertical: 10,
+                    paddingHorizontal: 4,
+                    borderRadius: 12, 
+                    alignItems: 'center',
+                    backgroundColor: soundVolume === 'high' ? '#d4af37' : (isDark ? '#1f2937' : '#f3f4f6'),
+                    borderWidth: 1,
+                    borderColor: soundVolume === 'high' ? '#d4af37' : (isDark ? '#374151' : '#d1d5db'),
+                  }}
+                >
+                  <Ionicons 
+                    name="volume-high" 
+                    size={18} 
+                    color={soundVolume === 'high' ? '#1a1a1a' : '#d4af37'} 
+                  />
+                  <Text 
+                    style={{ 
+                      fontSize: 9, 
+                      marginTop: 3, 
+                      fontWeight: '600',
+                      color: soundVolume === 'high' ? '#1a1a1a' : (isDark ? '#d1d5db' : '#374151'),
+                      letterSpacing: -0.3,
+                    }}
+                  >
+                    High
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
+        </SettingSection>
+
         {/* Data Management */}
         <SettingSection title="DATA">
           <SettingItem
@@ -514,25 +750,190 @@ export default function SettingsScreen() {
           />
         </SettingSection>
 
-        {/* Admin Panel Button */}
-        <TouchableOpacity
-          onPress={async () => {
-            await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-            router.push('/admin');
-          }}
-          activeOpacity={0.7}
-          className={`mx-6 my-6 p-5 rounded-2xl ${isDark ? 'bg-red-900/20 border border-red-500/30' : 'bg-red-50 border border-red-200'}`}
-        >
-          <View className="flex-row items-center justify-center">
-            <Ionicons name="shield-checkmark-outline" size={24} color={isDark ? '#fca5a5' : '#dc2626'} />
-            <Text className={`ml-3 text-lg font-bold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
-              Admin Panel - Review Questions
-            </Text>
+        {/* Account & Cloud Sync Section */}
+        <SettingSection title="Account & Cloud Sync">
+          {/* Account Info */}
+          <View className={`rounded-2xl p-5 mb-4 ${isDark ? 'bg-gray-800' : 'bg-gray-50'}`}>
+            <View className="flex-row items-center mb-3">
+              <View className="w-12 h-12 rounded-full bg-primary-accent/20 items-center justify-center mr-3">
+                <Ionicons 
+                  name={isAnonymous || !user ? 'person-circle' : 'person'} 
+                  size={24} 
+                  color="#d4af37" 
+                />
+              </View>
+              <View className="flex-1">
+                <Text className={`text-base font-bold ${isDark ? 'text-white' : 'text-primary-dark'}`}>
+                  {isAnonymous || !user ? 'Anonymous User' : user?.email || 'Not signed in'}
+                </Text>
+                <Text className={`text-xs ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                  {isAnonymous || !user ? 'Data stored locally only' : 'Cloud sync available'}
+                </Text>
+              </View>
+            </View>
+
+            {(isAnonymous || !user) && (
+              <TouchableOpacity
+                onPress={() => router.push('/auth')}
+                className="bg-primary-accent rounded-xl py-3 items-center"
+              >
+                <Text className="text-primary-dark font-bold">Sign In or Create Account</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          <Text className={`text-center mt-2 text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>
-            Report and review incorrect quiz answers
-          </Text>
-        </TouchableOpacity>
+
+          {/* Cloud Sync Toggle - Only for signed-in users */}
+          {user && !isAnonymous && (
+            <>
+              <SettingItem
+                icon="cloud-outline"
+                title="Auto Cloud Sync"
+                subtitle={syncEnabled ? 'Enabled' : 'Disabled'}
+                rightComponent={
+                  <Switch
+                    value={syncEnabled}
+                    onValueChange={async (value) => {
+                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+                      if (value) {
+                        setSyncing(true);
+                        await enableSync();
+                        await AsyncStorage.setItem('cloudSyncEnabled', 'true');
+                        setSyncEnabled(true);
+                        setSyncing(false);
+                        showToast({ message: '✅ Cloud sync enabled', type: 'success' });
+                      } else {
+                        await disableSync();
+                        await AsyncStorage.setItem('cloudSyncEnabled', 'false');
+                        setSyncEnabled(false);
+                        showToast({ message: 'Cloud sync disabled' });
+                      }
+                    }}
+                    trackColor={{ false: isDark ? '#374151' : '#d1d5db', true: '#d4af37' }}
+                    thumbColor={syncEnabled ? '#ffffff' : '#f3f4f6'}
+                  />
+                }
+              />
+
+              {/* Manual Sync Buttons */}
+              {syncEnabled && (
+                <>
+                  <SettingItem
+                    icon="cloud-upload-outline"
+                    title="Upload to Cloud"
+                    subtitle="Replace cloud with local data"
+                    onPress={async () => {
+                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setSyncing(true);
+                      const result = await syncLocalToCloud();
+                      setSyncing(false);
+                      if (result.success) {
+                        showToast({ message: '✅ Uploaded to cloud', type: 'success' });
+                      } else {
+                        showAlert({ title: 'Upload Failed', message: result.error || 'Failed to upload', buttons: [{ text: 'OK' }] });
+                      }
+                    }}
+                    rightComponent={syncing ? <ActivityIndicator color="#d4af37" /> : undefined}
+                  />
+
+                  <SettingItem
+                    icon="cloud-download-outline"
+                    title="Download from Cloud"
+                    subtitle="Replace local with cloud data"
+                    onPress={async () => {
+                      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                      setSyncing(true);
+                      const result = await syncCloudToLocal();
+                      setSyncing(false);
+                      if (result.success) {
+                        showToast({ message: '✅ Downloaded from cloud', type: 'success' });
+                      } else {
+                        showAlert({ title: 'Download Failed', message: result.error || 'Failed to download', buttons: [{ text: 'OK' }] });
+                      }
+                    }}
+                    rightComponent={syncing ? <ActivityIndicator color="#d4af37" /> : undefined}
+                  />
+                </>
+              )}
+
+            </>
+          )}
+        </SettingSection>
+
+        {/* Sign Out Button - Outside Section for Full Width */}
+        {user && !isAnonymous && (
+          <View style={{ paddingHorizontal: 24, marginBottom: 16 }}>
+            <TouchableOpacity
+              onPress={async () => {
+                await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+                showAlert({
+                  title: 'Sign Out?',
+                  message: 'Your local data will remain on this device.',
+                  buttons: [
+                    { text: 'Cancel', style: 'cancel' },
+                    { 
+                      text: 'Sign Out',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await signOut();
+                        showToast({ message: 'Signed out', type: 'success' });
+                      }
+                    },
+                  ],
+                });
+              }}
+              activeOpacity={0.7}
+              style={{
+                padding: 20,
+                borderRadius: 16,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderWidth: 1,
+                borderColor: isDark ? 'rgba(127, 29, 29, 0.3)' : 'rgba(254, 226, 226, 1)',
+                backgroundColor: isDark ? 'rgba(127, 29, 29, 0.1)' : 'rgba(254, 226, 226, 1)',
+                width: '100%',
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Ionicons name="log-out" size={20} color="#ef4444" />
+                <Text 
+                  style={{ 
+                    color: '#ef4444', 
+                    fontWeight: '600', 
+                    marginLeft: 8, 
+                    fontSize: 16,
+                  }}
+                  allowFontScaling={false}
+                  ellipsizeMode="clip"
+                >
+                  SignOutt
+                </Text>
+              </View>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Admin Panel Button - Only for Admin Users */}
+        {isAdmin && (
+          <TouchableOpacity
+            onPress={async () => {
+              await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+              router.push('/admin');
+            }}
+            activeOpacity={0.7}
+            className={`mx-6 my-4 p-5 rounded-2xl ${isDark ? 'bg-red-900/20 border border-red-500/30' : 'bg-red-50 border border-red-200'}`}
+          >
+            <View className="flex-row items-center justify-center">
+              <Ionicons name="shield-checkmark-outline" size={24} color={isDark ? '#fca5a5' : '#dc2626'} />
+              <Text className={`ml-3 text-lg font-bold ${isDark ? 'text-red-300' : 'text-red-700'}`}>
+                Admin Panel - Review Questions
+              </Text>
+            </View>
+            <Text className={`text-center mt-2 text-sm ${isDark ? 'text-red-400' : 'text-red-600'}`}>
+              Report and review incorrect quiz answers
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View className="h-8" />
       </Animated.ScrollView>

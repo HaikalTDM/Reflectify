@@ -20,6 +20,7 @@ Reflectify is a React Native app that helps Muslims integrate mindful reflection
 - 🎨 **Beautiful dark/light themes** with smooth animations
 - ✅ **100% Sahih hadiths** from Bukhari & Muslim collections
 - 🚀 **Smart caching** for offline use
+- ☁️ **Cloud sync** with Supabase (optional)
 
 ---
 
@@ -80,8 +81,10 @@ npm install --legacy-peer-deps
 
 # 3. Set up environment variables (optional)
 cp .env.example .env
-# Add your DeepSeek API key to .env:
+# Add your API keys to .env:
 # DEEPSEEK_API_KEY=your_api_key_here
+# SUPABASE_URL=your_supabase_url_here
+# SUPABASE_ANON_KEY=your_supabase_key_here
 
 # 4. Start the development server
 npm start
@@ -451,13 +454,45 @@ npm start -- --clear
 
 ---
 
+## ☁️ **Cloud Sync with Supabase**
+
+### **Features**
+- ✅ **User Authentication** (email + anonymous mode)
+- ✅ **Cloud Backup** (never lose your progress)
+- ✅ **Multi-Device Sync** (access from any device)
+- ✅ **Local Fallback** (works offline, syncs when online)
+- ✅ **Privacy First** (Row Level Security enabled)
+
+### **Setup**
+
+1. **Create Supabase Project**
+   - Visit [supabase.com](https://supabase.com) and create a free project
+   - Follow instructions in `SUPABASE_SETUP.md`
+
+2. **Add Credentials to .env**
+   ```env
+   SUPABASE_URL=https://xxxxx.supabase.co
+   SUPABASE_ANON_KEY=eyJxxx...
+   ```
+
+3. **Run SQL Schema**
+   - Copy SQL from `SUPABASE_SETUP.md`
+   - Run in Supabase Dashboard > SQL Editor
+
+4. **Done!** 
+   - Users can now sign in and sync their progress
+   - Anonymous users keep data locally
+   - Sign up later to migrate data to cloud
+
+---
+
 ## 📈 **Roadmap**
 
-- [ ] Supabase integration for user data sync
+- [x] Supabase integration for user data sync ✅
+- [x] Streak tracking & achievements ✅
 - [ ] More hadith collections (Abu Dawood, Tirmidhi - verified only)
 - [ ] Social features (share reflections, leaderboards)
 - [ ] Apple Health / Google Fit integration
-- [ ] Streak tracking & achievements
 - [ ] PDF export of reflections
 - [ ] Voice narration of hadiths
 - [ ] Widget support (iOS/Android)

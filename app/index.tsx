@@ -10,7 +10,7 @@ import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotification } from '../contexts/NotificationContext';
 import { usageTracker } from '../utils/usageTracker';
-import { getUserStats, UserStats } from '../utils/userStats';
+import { getUserStats, UserStats } from '../utils/userStatsSupabase';
 
 const { width } = Dimensions.get('window');
 

@@ -131,7 +131,7 @@ export default function ReflectionScreen() {
       setHadith(loadedHadith);
       
       // Check if bookmarked
-      const { isBookmarked: checkBookmark } = await import('../utils/userStats');
+      const { isBookmarked: checkBookmark } = await import('../utils/userStatsSupabase');
       const bookmarked = await checkBookmark(loadedHadith.reference);
       setIsBookmarked(bookmarked);
     } catch (error) {
@@ -270,7 +270,7 @@ export default function ReflectionScreen() {
 
     // Save stats
     try {
-      const { updateStatsAfterReflection } = await import('../utils/userStats');
+      const { updateStatsAfterReflection } = await import('../utils/userStatsSupabase');
       await updateStatsAfterReflection(score);
       await Promise.all([
         AsyncStorage.setItem('justCompleted', 'true'),
@@ -309,7 +309,7 @@ export default function ReflectionScreen() {
     
     try {
       await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-      const { toggleBookmark } = await import('../utils/userStats');
+      const { toggleBookmark } = await import('../utils/userStatsSupabase');
       const newBookmarkState = await toggleBookmark(hadith.reference);
       setIsBookmarked(newBookmarkState);
     } catch (error) {

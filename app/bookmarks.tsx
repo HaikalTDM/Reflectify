@@ -6,7 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { useTheme } from '../contexts/ThemeContext';
-import { getUserStats, toggleBookmark } from '../utils/userStats';
+import { getUserStats, toggleBookmark } from '../utils/userStatsSupabase';
 import { useNotification } from '../contexts/NotificationContext';
 import { fetchSpecificHadith } from '../utils/hadithApi';
 import { Hadith } from '../utils/hadithData';

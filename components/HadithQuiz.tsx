@@ -3,6 +3,7 @@ import { View, Text, TouchableOpacity, Animated, Easing, ScrollView } from 'reac
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { QuizQuestion } from '../utils/hadithQuestions';
+import { soundManager } from '../utils/soundManager';
 
 interface HadithQuizProps {
   questions: QuizQuestion[];
@@ -93,6 +94,8 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
       setEarnedPoints(question.points);
       setShowScorePop(true);
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // Play correct sound
+      soundManager.playSound('correct');
       
       // Score pop animation - appears above sticky score
       scorePopAnim.setValue(0);
@@ -145,6 +148,8 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
       }, 1800); // 1.8 seconds to see the celebration
     } else {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+      // Play wrong sound
+      soundManager.playSound('wrong');
       // Auto-advance for wrong answers too, after reading explanation
       setTimeout(() => {
         if (currentQuestion < questions.length - 1) {
@@ -173,6 +178,8 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
     } else {
       // Quiz complete
       const totalPoints = questions.reduce((sum, q) => sum + q.points, 0);
+      // Play completion sound
+      soundManager.playSound('complete');
       onComplete(score, totalPoints);
     }
   };

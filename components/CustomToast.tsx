@@ -101,21 +101,21 @@ export default function CustomToast({
         return {
           icon: 'checkmark-circle' as const,
           color: '#10b981',
-          bgColor: isDark ? 'rgba(16, 185, 129, 0.2)' : 'rgba(16, 185, 129, 0.15)',
+          bgColor: isDark ? 'rgba(6, 78, 59, 0.95)' : 'rgba(209, 250, 229, 0.95)',
           borderColor: '#10b981',
         };
       case 'error':
         return {
           icon: 'close-circle' as const,
           color: '#ef4444',
-          bgColor: isDark ? 'rgba(239, 68, 68, 0.2)' : 'rgba(239, 68, 68, 0.15)',
+          bgColor: isDark ? 'rgba(127, 29, 29, 0.95)' : 'rgba(254, 226, 226, 0.95)',
           borderColor: '#ef4444',
         };
       case 'warning':
         return {
           icon: 'warning' as const,
           color: '#f59e0b',
-          bgColor: isDark ? 'rgba(245, 158, 11, 0.2)' : 'rgba(245, 158, 11, 0.15)',
+          bgColor: isDark ? 'rgba(120, 53, 15, 0.95)' : 'rgba(254, 243, 199, 0.95)',
           borderColor: '#f59e0b',
         };
       case 'info':
@@ -123,7 +123,7 @@ export default function CustomToast({
         return {
           icon: 'information-circle' as const,
           color: '#3b82f6',
-          bgColor: isDark ? 'rgba(59, 130, 246, 0.2)' : 'rgba(59, 130, 246, 0.15)',
+          bgColor: isDark ? 'rgba(30, 58, 138, 0.95)' : 'rgba(219, 234, 254, 0.95)',
           borderColor: '#3b82f6',
         };
     }
