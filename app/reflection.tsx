@@ -34,6 +34,7 @@ export default function ReflectionScreen() {
   const [quizQuestions, setQuizQuestions] = useState<any[]>([]); // Store generated questions
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [questionsPreloaded, setQuestionsPreloaded] = useState(false);
+  const [quizTimerPaused, setQuizTimerPaused] = useState(false); // Track if quiz timer should be paused
 
   // Animation values
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -442,6 +443,7 @@ export default function ReflectionScreen() {
                 duration={COUNTDOWN_DURATION}
                 onComplete={handleQuizTimerComplete}
                 isDark={isDark}
+                paused={quizTimerPaused}
               />
             </Animated.View>
           )}
@@ -520,6 +522,7 @@ export default function ReflectionScreen() {
                     isDark={isDark}
                     onComplete={handleQuizComplete}
                     onScoreUpdate={(score) => setQuizScore(score)}
+                    onPauseTimer={(paused) => setQuizTimerPaused(paused)}
                   />
                 ) : (
                   <View className="flex-1 justify-center items-center p-6">

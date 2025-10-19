@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Animated, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, Animated, Easing, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Haptics from 'expo-haptics';
 import { QuizQuestion } from '../utils/hadithQuestions';
@@ -10,9 +10,10 @@ interface HadithQuizProps {
   isDark: boolean;
   onComplete: (score: number, totalPoints: number) => void;
   onScoreUpdate?: (score: number) => void;
+  onPauseTimer?: (paused: boolean) => void; // Notify parent to pause timer
 }
 
-export default function HadithQuiz({ questions, language, isDark, onComplete, onScoreUpdate }: HadithQuizProps) {
+export default function HadithQuiz({ questions, language, isDark, onComplete, onScoreUpdate, onPauseTimer }: HadithQuizProps) {
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [showExplanation, setShowExplanation] = useState(false);
@@ -28,6 +29,9 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
   const celebrationScale = useRef(new Animated.Value(1)).current;
   const scorePopAnim = useRef(new Animated.Value(0)).current;
   const scorePopSlide = useRef(new Animated.Value(-30)).current;
+  
+  // Scroll ref to auto-scroll to top
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const showMalay = language === 'ms' || language.includes('ms');
   const question = questions[currentQuestion];
@@ -71,6 +75,12 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
     if (showExplanation) return; // Already answered
 
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    
+    // Pause the timer when answer is selected
+    if (onPauseTimer) {
+      onPauseTimer(true);
+    }
+    
     setSelectedAnswer(index);
     
     const correct = index === question.correctAnswer;
@@ -135,7 +145,12 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
       }, 1800); // 1.8 seconds to see the celebration
     } else {
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-      // For wrong answers, user needs to read explanation and click Next
+      // Auto-advance for wrong answers too, after reading explanation
+      setTimeout(() => {
+        if (currentQuestion < questions.length - 1) {
+          handleNext();
+        }
+      }, 3000); // 3 seconds to read explanation
     }
   };
 
@@ -143,6 +158,14 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     
     if (currentQuestion < questions.length - 1) {
+      // Resume the timer when advancing to next question
+      if (onPauseTimer) {
+        onPauseTimer(false);
+      }
+      
+      // Scroll to top smoothly
+      scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      
       setCurrentQuestion(currentQuestion + 1);
       setSelectedAnswer(null);
       setShowExplanation(false);
@@ -235,7 +258,12 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
         </Animated.View>
       )}
 
-      <Animated.View
+      <ScrollView
+        ref={scrollViewRef}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ flexGrow: 1 }}
+      >
+        <Animated.View
         style={{
           opacity: fadeAnim,
           transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
@@ -346,8 +374,19 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
         </Animated.View>
       )}
 
-      {/* Next Button - Only show for wrong answers or last question */}
-      {showExplanation && (!answeredCorrectly || currentQuestion === questions.length - 1) && (
+      {/* Auto-advancing message */}
+      {showExplanation && currentQuestion < questions.length - 1 && (
+        <View className="items-center mb-8">
+          <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+            {answeredCorrectly 
+              ? 'Next question in 2s... ⏱️'
+              : 'Next question in 3s... ⏱️'}
+          </Text>
+        </View>
+      )}
+      
+      {/* Finish button for last question */}
+      {showExplanation && currentQuestion === questions.length - 1 && (
         <TouchableOpacity
           onPress={handleNext}
           activeOpacity={0.8}
@@ -355,10 +394,10 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
         >
           <View className="flex-row items-center">
             <Text className="text-primary-dark text-lg font-bold">
-              {currentQuestion < questions.length - 1 ? 'Next Question' : 'Finish Quiz'}
+              Finish Quiz
             </Text>
             <Ionicons 
-              name={currentQuestion < questions.length - 1 ? 'arrow-forward' : 'checkmark-circle'} 
+              name="checkmark-circle" 
               size={24} 
               color="#1a1a1a" 
               style={{ marginLeft: 8 }}
@@ -366,16 +405,8 @@ export default function HadithQuiz({ questions, language, isDark, onComplete, on
           </View>
         </TouchableOpacity>
       )}
-
-      {/* Auto-advancing message for correct answers */}
-      {showExplanation && answeredCorrectly && currentQuestion < questions.length - 1 && (
-        <View className="items-center mb-8">
-          <Text className={`text-sm ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-            Auto-advancing to next question... ⏱️
-          </Text>
-        </View>
-      )}
       </Animated.View>
+      </ScrollView>
     </View>
   );
 }

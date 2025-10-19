@@ -73,7 +73,7 @@ export default function BookmarksScreen() {
             const hadith = await fetchSpecificHadith(collection, number);
             if (hadith) {
               previews[hadithRef] = {
-                text: hadith.text.substring(0, 100) + '...',
+                text: hadith.text_en.substring(0, 100) + '...',
                 theme: hadith.theme
               };
             }
@@ -417,12 +417,12 @@ export default function BookmarksScreen() {
                 showsVerticalScrollIndicator={false}
               >
                 {/* Arabic Text */}
-                {selectedHadith?.arabic && (
+                {selectedHadith?.text_ar && (
                   <View className="mb-6">
                     <Text className={`text-2xl text-right leading-10 ${
                       isDark ? 'text-primary-accent' : 'text-primary-accent'
                     }`} style={{ fontFamily: 'System' }}>
-                      {selectedHadith.arabic}
+                      {selectedHadith.text_ar}
                     </Text>
                   </View>
                 )}
@@ -439,12 +439,12 @@ export default function BookmarksScreen() {
                   <Text className={`text-base leading-7 ${
                     isDark ? 'text-white' : 'text-primary-dark'
                   }`}>
-                    {selectedHadith?.text}
+                    {selectedHadith?.text_en}
                   </Text>
                 </View>
 
                 {/* Malay Translation */}
-                {selectedHadith?.malay && (
+                {selectedHadith?.text_ms && (
                   <View className={`p-4 rounded-2xl ${
                     isDark ? 'bg-gray-800/50' : 'bg-gray-50'
                   }`}>
@@ -456,7 +456,7 @@ export default function BookmarksScreen() {
                     <Text className={`text-base leading-7 ${
                       isDark ? 'text-white' : 'text-primary-dark'
                     }`}>
-                      {selectedHadith.malay}
+                      {selectedHadith.text_ms}
                     </Text>
                   </View>
                 )}

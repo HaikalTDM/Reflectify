@@ -5,25 +5,40 @@ interface CountdownTimerProps {
   duration: number; // in seconds
   onComplete: () => void;
   isDark: boolean;
+  paused?: boolean; // Optional: pause the timer
 }
 
-function CountdownTimer({ duration, onComplete, isDark }: CountdownTimerProps) {
+function CountdownTimer({ duration, onComplete, isDark, paused = false }: CountdownTimerProps) {
   const [timeLeft, setTimeLeft] = useState(duration);
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const ringPulse = useRef(new Animated.Value(1)).current;
   const colorTransition = useRef(new Animated.Value(0)).current;
+  const progressAnim = useRef(new Animated.Value(0)).current;
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Store animation references to pause/resume them
+  const progressAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+  const colorAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   useEffect(() => {
-    // Color transition from gold to red in last 10 seconds
-    const colorStartTime = Math.max(0, duration - 10);
-    setTimeout(() => {
-      Animated.timing(colorTransition, {
-        toValue: 1,
-        duration: 10000,
-        easing: Easing.inOut(Easing.quad),
-        useNativeDriver: false,
-      }).start();
-    }, colorStartTime * 1000);
+    // Smooth progress animation from 0 to 100 over the entire duration
+    progressAnimRef.current = Animated.timing(progressAnim, {
+      toValue: 100,
+      duration: duration * 1000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    progressAnimRef.current.start();
+
+    // Smooth color transition through all 3 phases over entire duration
+    // 0 = yellow (30-20s), 0.5 = orange (20-10s), 1 = red (10-0s)
+    colorAnimRef.current = Animated.timing(colorTransition, {
+      toValue: 1,
+      duration: duration * 1000,
+      easing: Easing.linear,
+      useNativeDriver: false,
+    });
+    colorAnimRef.current.start();
 
     // Gentle breathing pulse animation - peaceful and meditative
     const pulse = Animated.loop(
@@ -63,10 +78,10 @@ function CountdownTimer({ duration, onComplete, isDark }: CountdownTimerProps) {
     );
     ringPulseAnimation.start();
 
-    const interval = setInterval(() => {
+    intervalRef.current = setInterval(() => {
       setTimeLeft((prev) => {
         if (prev <= 1) {
-          clearInterval(interval);
+          if (intervalRef.current) clearInterval(intervalRef.current);
           pulse.stop();
           ringPulseAnimation.stop();
           onComplete();
@@ -77,30 +92,98 @@ function CountdownTimer({ duration, onComplete, isDark }: CountdownTimerProps) {
     }, 1000);
 
     return () => {
-      clearInterval(interval);
+      if (intervalRef.current) clearInterval(intervalRef.current);
       pulse.stop();
       ringPulseAnimation.stop();
     };
   }, [duration, onComplete]);
 
-  // Smooth color transition from gold (#d4af37) to red (#ef4444)
+  // Handle pause/resume
+  useEffect(() => {
+    if (paused) {
+      // Pause the timer
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+      
+      // Pause animations
+      if (progressAnimRef.current) {
+        progressAnimRef.current.stop();
+      }
+      if (colorAnimRef.current) {
+        colorAnimRef.current.stop();
+      }
+    } else {
+      // Resume the timer if not already running
+      if (!intervalRef.current && timeLeft > 0) {
+        intervalRef.current = setInterval(() => {
+          setTimeLeft((prev) => {
+            if (prev <= 1) {
+              if (intervalRef.current) clearInterval(intervalRef.current);
+              onComplete();
+              return 0;
+            }
+            return prev - 1;
+          });
+        }, 1000);
+      }
+      
+      // Resume animations from current value
+      const remainingTime = timeLeft;
+      const elapsedTime = duration - remainingTime;
+      const progressValue = (elapsedTime / duration) * 100;
+      const colorValue = elapsedTime / duration;
+      
+      progressAnimRef.current = Animated.timing(progressAnim, {
+        toValue: 100,
+        duration: remainingTime * 1000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      });
+      progressAnimRef.current.start();
+      
+      colorAnimRef.current = Animated.timing(colorTransition, {
+        toValue: 1,
+        duration: remainingTime * 1000,
+        easing: Easing.linear,
+        useNativeDriver: false,
+      });
+      colorAnimRef.current.start();
+    }
+
+    return () => {
+      if (paused && intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+  }, [paused, timeLeft, onComplete, duration]);
+
+  // 3-phase color transition: Yellow → Orange → Red
+  // Yellow: #eab308, Orange: #f97316, Red: #ef4444
   const borderColor = colorTransition.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#d4af37', '#ef4444'],
+    inputRange: [0, 0.33, 0.67, 1],
+    outputRange: ['#eab308', '#eab308', '#f97316', '#ef4444'], // Yellow stays until 20s, then orange, then red
   });
 
   const textColor = colorTransition.interpolate({
-    inputRange: [0, 1],
-    outputRange: isDark ? ['#ffffff', '#fecaca'] : ['#1a202c', '#ef4444'],
+    inputRange: [0, 0.33, 0.67, 1],
+    outputRange: isDark 
+      ? ['#fef08a', '#fef08a', '#fed7aa', '#fecaca'] // Light yellow → light orange → light red (dark mode)
+      : ['#854d0e', '#854d0e', '#9a3412', '#7f1d1d'], // Dark yellow → dark orange → dark red (light mode)
   });
 
   const progressColor = colorTransition.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['#d4af37', '#ef4444'],
+    inputRange: [0, 0.33, 0.67, 1],
+    outputRange: ['#eab308', '#eab308', '#f97316', '#ef4444'], // Yellow → Orange → Red
   });
 
-  // Calculate progress percentage for width
-  const progressPercentage = ((duration - timeLeft) / duration) * 100;
+  // Animated progress width (smoothly transitions)
+  const progressWidth = progressAnim.interpolate({
+    inputRange: [0, 100],
+    outputRange: ['100%', '0%'],
+  });
 
   const formatTime = (seconds: number): string => {
     const mins = Math.floor(seconds / 60);
@@ -137,7 +220,7 @@ function CountdownTimer({ duration, onComplete, isDark }: CountdownTimerProps) {
       }`}>
         <Animated.View
           style={{
-            width: `${100 - progressPercentage}%`,
+            width: progressWidth,
             height: '100%',
             borderRadius: 9999,
             backgroundColor: progressColor,

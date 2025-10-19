@@ -123,17 +123,19 @@ export default function CustomAlert({
       statusBarTranslucent
     >
       <View style={styles.container}>
-        <BlurView
-          intensity={isDark ? 40 : 80}
-          tint={isDark ? 'dark' : 'light'}
-          style={StyleSheet.absoluteFill}
+        {/* Darker background overlay */}
+        <View 
+          style={[
+            StyleSheet.absoluteFill, 
+            { backgroundColor: isDark ? 'rgba(0, 0, 0, 0.85)' : 'rgba(0, 0, 0, 0.75)' }
+          ]}
         >
           <TouchableOpacity
             style={styles.backdrop}
             activeOpacity={1}
             onPress={onClose}
           />
-        </BlurView>
+        </View>
 
         <Animated.View
           style={[

@@ -165,7 +165,7 @@ async function pregenerateToFiles() {
     console.log('📖 SAHIH AL-BUKHARI');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     
-    const bukhariLimit = IS_TEST_MODE ? 5 : 100;
+    const bukhariLimit = IS_TEST_MODE ? 5 : 7563; // Total Sahih Bukhari hadiths
     console.log(`Fetching ${bukhariLimit} hadiths from Sahih Bukhari...\n`);
     
     const bukhariHadiths = await fetchHadithsFromApi(
@@ -208,7 +208,7 @@ async function pregenerateToFiles() {
     console.log('📖 SAHIH MUSLIM');
     console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n');
     
-    const muslimLimit = IS_TEST_MODE ? 5 : 100;
+    const muslimLimit = IS_TEST_MODE ? 5 : 7563; // Total Sahih Muslim hadiths
     console.log(`Fetching ${muslimLimit} hadiths from Sahih Muslim...\n`);
     
     const muslimHadiths = await fetchHadithsFromApi(

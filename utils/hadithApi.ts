@@ -206,11 +206,11 @@ export async function fetchSpecificHadith(
     return {
       id: parseInt(apiHadith.hadithNumber) || 1,
       reference: `${bookName}, ${apiHadith.hadithNumber}`,
-      text: apiHadith.hadithEnglish || 'Text not available',
-      arabic: apiHadith.hadithArabic || '',
+      text_en: apiHadith.hadithEnglish || 'Text not available',
+      text_ar: apiHadith.hadithArabic || '',
+      text_ms: malayTranslation || '[Terjemahan Melayu akan datang]',
       narrator: apiHadith.englishNarrator || 'Unknown',
       theme: 'Faith and Belief',
-      malay: malayTranslation,
     };
   } catch (error) {
     console.error('Error fetching specific hadith:', error);
@@ -352,6 +352,10 @@ function formatBookName(bookSlug: string): string {
  * Simple categorization based on keywords
  */
 function categorizeHadith(text: string): string {
+  if (!text || text.trim().length === 0) {
+    return 'Faith and Belief';
+  }
+  
   const lowerText = text.toLowerCase();
   
   if (lowerText.includes('prayer') || lowerText.includes('salah') || lowerText.includes('pray')) {
