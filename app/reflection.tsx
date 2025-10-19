@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { View, Text, TouchableOpacity, Dimensions, Animated, Easing, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { BlurView } from 'expo-blur';
 import * as Haptics from 'expo-haptics';
@@ -20,6 +20,7 @@ const { width } = Dimensions.get('window');
 
 export default function ReflectionScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { isDark } = useTheme();
   const [hadith, setHadith] = useState<Hadith | null>(null);
   const [language, setLanguage] = useState<'en' | 'ar' | 'ms' | 'en+ar' | 'en+ms' | 'ar+ms' | 'all'>('en');
@@ -105,13 +106,32 @@ export default function ReflectionScreen() {
       const lang = await AsyncStorage.getItem('language');
       setLanguage((lang as 'en' | 'ar' | 'ms' | 'en+ar' | 'en+ms' | 'ar+ms' | 'all') || 'en');
 
-      // Get a random hadith (now async - tries API first, falls back to local)
-      const randomHadith = await getRandomHadith();
-      setHadith(randomHadith);
+      let loadedHadith: Hadith;
+
+      // Check if specific hadith was requested via URL params
+      if (params.collection && params.hadithNumber) {
+        const { fetchSpecificHadith } = await import('../utils/hadithApi');
+        const specificHadith = await fetchSpecificHadith(
+          params.collection as string, 
+          params.hadithNumber as string
+        );
+        
+        if (specificHadith) {
+          loadedHadith = specificHadith;
+        } else {
+          // If specific hadith not found, fall back to random
+          loadedHadith = await getRandomHadith();
+        }
+      } else {
+        // Get a random hadith (now async - tries API first, falls back to local)
+        loadedHadith = await getRandomHadith();
+      }
+
+      setHadith(loadedHadith);
       
       // Check if bookmarked
       const { isBookmarked: checkBookmark } = await import('../utils/userStats');
-      const bookmarked = await checkBookmark(randomHadith.reference);
+      const bookmarked = await checkBookmark(loadedHadith.reference);
       setIsBookmarked(bookmarked);
     } catch (error) {
       console.error('Error loading settings:', error);
@@ -122,7 +142,7 @@ export default function ReflectionScreen() {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [params]);
 
   const handleTimerComplete = useCallback(async () => {
     setTimerComplete(true);

@@ -158,6 +158,66 @@ export async function getRandomHadithFromApi(): Promise<Hadith | null> {
  * Fetch hadiths by specific book (SAHIH ONLY)
  * Only accepts Sahih Bukhari or Sahih Muslim
  */
+export async function fetchSpecificHadith(
+  collection: string,
+  hadithNumber: string
+): Promise<Hadith | null> {
+  try {
+    // Map collection to book slug
+    const bookSlug = collection === 'bukhari' ? 'sahih-bukhari' : 'sahih-muslim';
+    
+    if (!validateSahihBook(bookSlug)) {
+      throw new Error(`Only Sahih collections allowed`);
+    }
+
+    const encodedApiKey = encodeURIComponent(API_KEY);
+    const url = `${BASE_URL}/hadiths?apiKey=${encodedApiKey}&book=${bookSlug}&hadithNumber=${hadithNumber}`;
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const data: ApiResponse = await response.json();
+    
+    if (!data.hadiths.data || data.hadiths.data.length === 0) {
+      return null;
+    }
+
+    const apiHadith = data.hadiths.data[0];
+    let malayTranslation = getMalayTranslation(bookSlug, apiHadith.hadithNumber);
+    
+    if (!malayTranslation && apiHadith.hadithEnglish) {
+      try {
+        malayTranslation = await translateToMalay(apiHadith.hadithEnglish);
+      } catch (error) {
+        malayTranslation = '[Terjemahan Melayu akan datang]';
+      }
+    }
+
+    const bookName = bookSlug === 'sahih-bukhari' ? 'Sahih al-Bukhari' : 'Sahih Muslim';
+    
+    return {
+      id: parseInt(apiHadith.hadithNumber) || 1,
+      reference: `${bookName}, ${apiHadith.hadithNumber}`,
+      text: apiHadith.hadithEnglish || 'Text not available',
+      arabic: apiHadith.hadithArabic || '',
+      narrator: apiHadith.englishNarrator || 'Unknown',
+      theme: 'Faith and Belief',
+      malay: malayTranslation,
+    };
+  } catch (error) {
+    console.error('Error fetching specific hadith:', error);
+    return null;
+  }
+}
+
 export async function fetchHadithsByBook(
   bookSlug: string,
   page: number = 1,

@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as Haptics from 'expo-haptics';
 // import * as Clipboard from 'expo-clipboard'; // Not installed yet
 import {
   getReportedQuestions,
@@ -12,6 +13,7 @@ import {
   ReportedQuestion,
   MANUAL_CORRECTIONS,
 } from '../utils/questionReview';
+import { clearAllBadCache, getCacheSize } from '../utils/clearBadCache';
 import { useTheme } from '../contexts/ThemeContext';
 
 export default function AdminPanel() {
@@ -19,10 +21,17 @@ export default function AdminPanel() {
   const { isDark } = useTheme();
   const [reports, setReports] = useState<ReportedQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [cacheSize, setCacheSize] = useState(0);
 
   useEffect(() => {
     loadReports();
+    loadCacheSize();
   }, []);
+
+  const loadCacheSize = async () => {
+    const size = await getCacheSize();
+    setCacheSize(size);
+  };
 
   const loadReports = async () => {
     setLoading(true);
@@ -79,6 +88,30 @@ export default function AdminPanel() {
     );
   };
 
+  const handleClearCache = async () => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      '🧹 Clear Bad Cache',
+      `This will clear ${cacheSize} cached translations and hadiths that may have corrupted data.\n\nNew hadiths will fetch fresh translations from the API.\n\nContinue?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Clear Cache',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllBadCache();
+              await loadCacheSize();
+              Alert.alert('✅ Success', 'Cache cleared! Fresh translations will be fetched.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear cache');
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const groupByHadith = (reports: ReportedQuestion[]) => {
     const grouped: Record<string, ReportedQuestion[]> = {};
     reports.forEach(report => {
@@ -119,10 +152,13 @@ export default function AdminPanel() {
           <Text className={`text-sm mt-2 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
             Unique Hadiths: {Object.keys(groupedReports).length}
           </Text>
+          <Text className={`text-sm mt-1 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+            Cached Items: {cacheSize}
+          </Text>
         </View>
 
         {/* Action Buttons */}
-        <View className="flex-row gap-3 mb-6">
+        <View className="flex-row gap-3 mb-4">
           <TouchableOpacity
             onPress={handleExport}
             className="flex-1 bg-blue-500 p-4 rounded-xl flex-row items-center justify-center"
@@ -147,6 +183,27 @@ export default function AdminPanel() {
             <Text className="text-white font-semibold ml-2">Clear</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Clear Cache Button */}
+        <TouchableOpacity
+          onPress={handleClearCache}
+          className={`p-5 rounded-2xl mb-6 flex-row items-center justify-between ${
+            isDark ? 'bg-orange-900/20 border border-orange-500/30' : 'bg-orange-50 border border-orange-200'
+          }`}
+        >
+          <View className="flex-row items-center flex-1">
+            <Ionicons name="refresh-circle" size={32} color="#f97316" />
+            <View className="ml-4 flex-1">
+              <Text className={`text-base font-bold ${isDark ? 'text-orange-300' : 'text-orange-700'}`}>
+                🧹 Clear Bad Cache
+              </Text>
+              <Text className={`text-sm mt-1 ${isDark ? 'text-orange-400/70' : 'text-orange-600/70'}`}>
+                Fix corrupted translations ({cacheSize} items)
+              </Text>
+            </View>
+          </View>
+          <Ionicons name="chevron-forward" size={24} color="#f97316" />
+        </TouchableOpacity>
 
         {/* Reported Questions */}
         {loading ? (

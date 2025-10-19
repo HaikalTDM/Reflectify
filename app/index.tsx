@@ -17,7 +17,7 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen() {
   const router = useRouter();
   const { isDark } = useTheme();
-  const { showToast } = useNotification();
+  const { showToast, showAlert } = useNotification();
   const [nextReflection, setNextReflection] = useState<string | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [stats, setStats] = useState<UserStats>({
@@ -335,10 +335,14 @@ export default function HomeScreen() {
   const handleReflectionsPress = async () => {
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     
+    // If user has bookmarks, navigate to bookmarks page
+    if (stats.bookmarkedHadiths.length > 0) {
+      router.push('/bookmarks');
+      return;
+    }
+    
     const message = stats.totalReflections === 0
       ? "Start your first reflection today! Tap the button below to begin your journey of growth and learning. 🌟"
-      : stats.bookmarkedHadiths.length > 0
-      ? `You've completed ${stats.totalReflections} reflections!\n\nBookmarked Hadiths: ${stats.bookmarkedHadiths.length}\n\nKeep reflecting on the wisdom of our beloved Prophet ﷺ. May Allah accept your efforts! 🤲`
       : `You've completed ${stats.totalReflections} reflections!\n\nBookmark hadiths you love by tapping the bookmark icon during reflection. 📖\n\nMay Allah accept your efforts! 🤲`;
 
     showAlert({
@@ -462,9 +466,13 @@ export default function HomeScreen() {
                 Reflections Completed
               </Text>
               {stats.bookmarkedHadiths.length > 0 && (
-                <Text className={`text-xs mt-2 ${isDark ? 'text-primary-accent/70' : 'text-primary-accent'}`}>
-                  📖 {stats.bookmarkedHadiths.length} bookmarked
-                </Text>
+                <View className="flex-row items-center mt-3 px-4 py-2 bg-primary-accent/20 rounded-full">
+                  <Ionicons name="bookmark" size={14} color="#d4af37" />
+                  <Text className={`ml-2 text-xs font-semibold ${isDark ? 'text-primary-accent' : 'text-primary-accent'}`}>
+                    {stats.bookmarkedHadiths.length} saved · Tap to view
+                  </Text>
+                  <Ionicons name="chevron-forward" size={14} color="#d4af37" style={{ marginLeft: 4 }} />
+                </View>
               )}
             </View>
           </TouchableOpacity>

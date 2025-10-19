@@ -85,20 +85,72 @@ async function translateWithMyMemory(text: string, targetLang: string = 'ms'): P
 }
 
 /**
+ * Validate that translation is reasonable and not corrupted
+ */
+function validateTranslation(original: string, translated: string): boolean {
+  // Check if translation is not empty
+  if (!translated || translated.trim().length === 0) {
+    return false;
+  }
+  
+  // Check if translation is not the same as original (possible error)
+  if (original.trim() === translated.trim()) {
+    return false;
+  }
+  
+  // Check for HTML/error responses
+  if (translated.includes('<!DOCTYPE') || translated.includes('<html>')) {
+    return false;
+  }
+  
+  // Check if translation is reasonable length (not too short or too long compared to original)
+  const lengthRatio = translated.length / original.length;
+  if (lengthRatio < 0.3 || lengthRatio > 3) {
+    return false;
+  }
+  
+  // Check for placeholder/error messages
+  const errorPhrases = [
+    'translation not available',
+    'error',
+    'failed',
+    'invalid',
+    'null',
+    'undefined'
+  ];
+  const lowerTranslated = translated.toLowerCase();
+  if (errorPhrases.some(phrase => lowerTranslated.includes(phrase))) {
+    return false;
+  }
+  
+  return true;
+}
+
+/**
  * Main translation function with multiple fallbacks
  * Tries Google -> LibreTranslate -> MyMemory -> Cache/Placeholder
  */
 export async function translateToMalay(text: string): Promise<string> {
   // Check cache first
-  const cacheKey = `en_ms_${text}`;
+  const cacheKey = `en_ms_${text.substring(0, 100)}`; // Use first 100 chars as key
   if (translationCache.has(cacheKey)) {
-    return translationCache.get(cacheKey)!;
+    const cached = translationCache.get(cacheKey)!;
+    if (validateTranslation(text, cached)) {
+      return cached;
+    } else {
+      // Remove invalid cached translation
+      translationCache.delete(cacheKey);
+    }
   }
   
   // Don't translate empty strings
   if (!text || text.trim().length === 0) {
     return '[Terjemahan Melayu akan datang]';
   }
+  
+  // Truncate very long texts to avoid API limits
+  const maxLength = 5000;
+  const textToTranslate = text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   
   // Try translation services in order
   const translators = [
@@ -109,13 +161,19 @@ export async function translateToMalay(text: string): Promise<string> {
   
   for (const translator of translators) {
     try {
-      const translated = await translator.fn(text, 'ms');
+      const translated = await translator.fn(textToTranslate, 'ms');
       
-      // Cache successful translation
-      translationCache.set(cacheKey, translated);
-      
-      console.log(`✅ Translated via ${translator.name}`);
-      return translated;
+      // Validate translation before accepting
+      if (validateTranslation(textToTranslate, translated)) {
+        // Cache successful translation
+        translationCache.set(cacheKey, translated);
+        
+        console.log(`✅ Translated via ${translator.name}`);
+        return translated;
+      } else {
+        console.log(`⚠️ ${translator.name} returned invalid translation, trying next...`);
+        continue;
+      }
     } catch (error) {
       console.log(`❌ ${translator.name} failed, trying next...`);
       continue;
@@ -142,6 +200,7 @@ export async function batchTranslateToMalay(texts: string[]): Promise<string[]> 
  */
 export function clearTranslationCache(): void {
   translationCache.clear();
+  console.log('🧹 Translation cache cleared');
 }
 
 /**
