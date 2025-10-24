@@ -318,6 +318,14 @@ export async function updateStatsAfterReflection(score: number): Promise<UserSta
   console.log('New stats:', stats);
   await saveUserStats(stats);
   
+  // Clear any streak warnings since reflection is complete
+  try {
+    const { clearStreakWarnings } = await import('./streakManager');
+    await clearStreakWarnings();
+  } catch (error) {
+    console.log('Could not clear streak warnings:', error);
+  }
+  
   console.log('✅ Stats updated successfully');
   return stats;
 }

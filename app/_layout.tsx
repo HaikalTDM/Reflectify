@@ -217,6 +217,15 @@ function AppInitializer() {
           registerForPushNotificationsAsync().catch(() => {});
         }
         
+        // Check streak status and send notifications if needed
+        try {
+          const { performStreakCheck } = await import('../utils/streakManager');
+          await performStreakCheck();
+          console.log('✅ Streak check completed');
+        } catch (error) {
+          console.error('Streak check error:', error);
+        }
+        
         // Preload hadiths from API (temporarily disabled)
         // preloadHadiths().catch(() => {
         //   console.log('Preloading hadiths failed, will use local collection');
